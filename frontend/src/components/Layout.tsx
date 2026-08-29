@@ -1,5 +1,5 @@
-import { NavLink, Outlet } from "react-router-dom";
-import { LayoutDashboard, FileText, CheckSquare, ShoppingCart, Layers } from "lucide-react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { LayoutDashboard, FileText, CheckSquare, ShoppingCart, Layers, LogOut } from "lucide-react";
 import { useSession } from "../context/SessionContext";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -20,9 +20,13 @@ function initials(label: string) {
 }
 
 export function Layout() {
-  const { orgCode, orgs, setOrgCode, users, currentUserId, setCurrentUserId, ready, error } = useSession();
-  const currentUser = users.find((u) => u.id === currentUserId);
-  const currentOrg = orgs.find((o) => o.code === orgCode);
+  const { user, logout } = useSession();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   return (
     <div className="app-shell">
@@ -44,36 +48,25 @@ export function Layout() {
 
         <div className="rail-footer">
           <div className="account-chip">
-            <div className="avatar">{currentUser ? initials(currentUser.label) : "—"}</div>
+            <div className="avatar">{user ? initials(user.displayName) : "—"}</div>
             <div className="who">
-              <span className="name">{currentUser?.label.replace(/\s*\(.*\)/, "") ?? "Loading…"}</span>
-              <span className="org">{currentOrg?.label}</span>
+              <span className="name">{user?.displayName ?? "—"}</span>
+              <span className="org">{user?.orgDisplayName}</span>
             </div>
           </div>
+          <button className="ghost small" style={{ width: "100%", justifyContent: "center", marginTop: "0.4rem" }} onClick={handleLogout}>
+            <LogOut size={13} strokeWidth={2.25} />Sign out
+          </button>
         </div>
       </aside>
 
       <div className="main-col">
         <div className="top-bar">
-          <div className="session-picker">
-            <div className="picker">
-              <span>Organisation</span>
-              <select value={orgCode} onChange={(e) => setOrgCode(e.target.value)}>
-                {orgs.map((o) => <option key={o.code} value={o.code}>{o.label}</option>)}
-              </select>
-            </div>
-            <div className="picker">
-              <span>Signed in as</span>
-              <select value={currentUserId ?? ""} onChange={(e) => setCurrentUserId(e.target.value)} disabled={users.length === 0}>
-                {users.map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
-              </select>
-            </div>
-          </div>
+          <div />
           <ThemeToggle />
         </div>
         <div className="content">
-          {error && <div className="error-banner">Could not reach the API: {error}. Is the backend running on http://localhost:5282?</div>}
-          {!ready ? <div className="loading">Loading organisation…</div> : <Outlet />}
+          <Outlet />
         </div>
       </div>
     </div>

@@ -12,15 +12,14 @@ using P2P.Infrastructure.Persistence;
 namespace P2P.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260829150412_AddProcurement")]
-    partial class AddProcurement
+    [Migration("20260829161826_InitialSchema")]
+    partial class InitialSchema
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasDefaultSchema("org_template")
                 .HasAnnotation("ProductVersion", "10.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -53,7 +52,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("AuditLogId");
 
-                    b.ToTable("audit_field_change", "org_template");
+                    b.ToTable("audit_field_change", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Audit.AuditLog", b =>
@@ -118,7 +117,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("audit_log", "org_template");
+                    b.ToTable("audit_log", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Identity.AuthorityAssignment", b =>
@@ -174,7 +173,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("identity_authority_assignment", "org_template");
+                    b.ToTable("identity_authority_assignment", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Identity.Delegation", b =>
@@ -219,7 +218,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("identity_delegation", "org_template");
+                    b.ToTable("identity_delegation", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Identity.Permission", b =>
@@ -238,7 +237,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("identity_permission", "org_template");
+                    b.ToTable("identity_permission", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Identity.Role", b =>
@@ -260,7 +259,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("identity_role", "org_template");
+                    b.ToTable("identity_role", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Identity.RolePermission", b =>
@@ -277,7 +276,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("identity_role_permission", "org_template");
+                    b.ToTable("identity_role_permission", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Identity.User", b =>
@@ -303,6 +302,9 @@ namespace P2P.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("PasswordHash")
+                        .HasColumnType("text");
+
                     b.Property<DateTimeOffset?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -311,7 +313,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("identity_user", "org_template");
+                    b.ToTable("identity_user", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Organisation.BusinessUnit", b =>
@@ -336,7 +338,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("organisation_business_unit", "org_template");
+                    b.ToTable("organisation_business_unit", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Organisation.CostCenter", b =>
@@ -361,7 +363,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("organisation_cost_center", "org_template");
+                    b.ToTable("organisation_cost_center", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Organisation.Department", b =>
@@ -386,7 +388,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("organisation_department", "org_template");
+                    b.ToTable("organisation_department", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Organisation.LegalEntity", b =>
@@ -415,7 +417,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("organisation_legal_entity", "org_template");
+                    b.ToTable("organisation_legal_entity", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Organisation.Location", b =>
@@ -443,7 +445,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("organisation_location", "org_template");
+                    b.ToTable("organisation_location", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Procurement.PurchaseOrder", b =>
@@ -499,7 +501,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("procurement_purchase_order", "org_template");
+                    b.ToTable("procurement_purchase_order", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Procurement.PurchaseOrderLine", b =>
@@ -532,7 +534,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PurchaseOrderId");
 
-                    b.ToTable("procurement_purchase_order_line", "org_template");
+                    b.ToTable("procurement_purchase_order_line", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Procurement.PurchaseRequisition", b =>
@@ -605,7 +607,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("procurement_purchase_requisition", "org_template");
+                    b.ToTable("procurement_purchase_requisition", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Procurement.PurchaseRequisitionLine", b =>
@@ -638,7 +640,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PurchaseRequisitionId");
 
-                    b.ToTable("procurement_purchase_requisition_line", "org_template");
+                    b.ToTable("procurement_purchase_requisition_line", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Versioning.Document", b =>
@@ -673,7 +675,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("versioning_document", "org_template");
+                    b.ToTable("versioning_document", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Versioning.DocumentVersion", b =>
@@ -721,7 +723,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("versioning_document_version", "org_template");
+                    b.ToTable("versioning_document_version", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Workflow.ApprovalTask", b =>
@@ -765,7 +767,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("workflow_approval_task", "org_template");
+                    b.ToTable("workflow_approval_task", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Workflow.WorkflowDefinition", b =>
@@ -802,7 +804,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("workflow_definition", "org_template");
+                    b.ToTable("workflow_definition", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Workflow.WorkflowInstance", b =>
@@ -838,7 +840,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("workflow_instance", "org_template");
+                    b.ToTable("workflow_instance", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Workflow.WorkflowRule", b =>
@@ -866,7 +868,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("workflow_rule", "org_template");
+                    b.ToTable("workflow_rule", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Workflow.WorkflowStep", b =>
@@ -904,7 +906,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("workflow_step", "org_template");
+                    b.ToTable("workflow_step", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Workflow.WorkflowVersion", b =>
@@ -942,7 +944,7 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("workflow_version", "org_template");
+                    b.ToTable("workflow_version", (string)null);
                 });
 
             modelBuilder.Entity("P2P.Domain.Audit.AuditFieldChange", b =>

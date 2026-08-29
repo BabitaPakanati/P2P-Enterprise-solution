@@ -1,86 +1,84 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { createApi, type Api } from "../api/client";
-import { seedFoundation } from "../api/procurement";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createApi, login as loginRequest, type Api, type LoginResponse } from "../api/client";
+import { ApiError } from "../api/client";
 
-const ORGS = [
-  { code: "acme", label: "Acme Corporation" },
-  { code: "globex", label: "Globex Corporation" },
-];
+const STORAGE_KEY = "p2p.session";
 
-interface KnownUser {
-  id: string;
-  label: string;
+export interface SessionUser {
+  token: string;
+  userId: string;
+  displayName: string;
+  email: string;
+  organisationId: string;
+  orgCode: string;
+  orgDisplayName: string;
 }
 
 interface SessionValue {
-  orgCode: string;
-  orgs: typeof ORGS;
-  setOrgCode: (code: string) => void;
-  users: KnownUser[];
-  currentUserId: string | null;
-  setCurrentUserId: (id: string) => void;
+  user: SessionUser | null;
   api: Api;
+  /** True once a real, authenticated session exists - kept under this name so every page's existing `if (ready)` guard still means the right thing. */
   ready: boolean;
-  error: string | null;
+  login: (orgCode: string, email: string, password: string) => Promise<void>;
+  logout: () => void;
+  loginLoading: boolean;
+  loginError: string | null;
 }
 
 const SessionContext = createContext<SessionValue | null>(null);
 
+function loadStoredUser(): SessionUser | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as SessionUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+function toSessionUser(r: LoginResponse): SessionUser {
+  return {
+    token: r.token, userId: r.userId, displayName: r.displayName, email: r.email,
+    organisationId: r.organisationId, orgCode: r.orgCode, orgDisplayName: r.orgDisplayName,
+  };
+}
+
 /**
- * Stands in for real sign-in: picks an organisation (-> X-Org-Code) and an acting
- * user (-> X-User-Id) from the pair FoundationSeeder creates for that org. Calling
- * seed-foundation on every org switch is safe - it's idempotent (see
- * P2P.Api/Diagnostics/FoundationSeeder.cs) - and means this page never needs its own
- * "first run" step.
+ * Real authentication now (a signed JWT from POST /api/v1/auth/login), not the org
+ * + acting-user dropdowns this used to expose - see docs/ARCHITECTURE.md's "harden"
+ * milestone. The context shape (`api`, `ready`) is kept stable on purpose so pages
+ * built against the old dev-header session didn't need touching.
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [orgCode, setOrgCodeState] = useState(() => localStorage.getItem("p2p.orgCode") ?? "acme");
-  const [users, setUsers] = useState<KnownUser[]>([]);
-  const [currentUserId, setCurrentUserIdState] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [user, setUser] = useState<SessionUser | null>(loadStoredUser);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
-  const bootstrap = useCallback(async (org: string) => {
-    setReady(false);
-    setError(null);
+  const login = useCallback(async (orgCode: string, email: string, password: string) => {
+    setLoginLoading(true);
+    setLoginError(null);
     try {
-      const anonymousApi = createApi(org, null);
-      const seed = await seedFoundation(anonymousApi);
-      const knownUsers: KnownUser[] = [
-        { id: seed.requesterId, label: "Priya Sharma (Requester)" },
-        { id: seed.approverId, label: "Karan Mehta (Approver)" },
-      ];
-      setUsers(knownUsers);
-      const stored = localStorage.getItem(`p2p.userId.${org}`);
-      const nextUser = stored && knownUsers.some((u) => u.id === stored) ? stored : knownUsers[0].id;
-      setCurrentUserIdState(nextUser);
+      const result = await loginRequest(orgCode, email, password);
+      const sessionUser = toSessionUser(result);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionUser));
+      setUser(sessionUser);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not reach the API.");
+      const message = e instanceof ApiError ? e.message : "Could not reach the API.";
+      setLoginError(message);
+      throw e;
     } finally {
-      setReady(true);
+      setLoginLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    bootstrap(orgCode);
-  }, [orgCode, bootstrap]);
-
-  const setOrgCode = useCallback((code: string) => {
-    localStorage.setItem("p2p.orgCode", code);
-    setOrgCodeState(code);
+  const logout = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    setUser(null);
   }, []);
 
-  const setCurrentUserId = useCallback(
-    (id: string) => {
-      localStorage.setItem(`p2p.userId.${orgCode}`, id);
-      setCurrentUserIdState(id);
-    },
-    [orgCode],
-  );
+  const api = useMemo(() => createApi(user?.token ?? null), [user?.token]);
 
-  const api = useMemo(() => createApi(orgCode, currentUserId), [orgCode, currentUserId]);
-
-  const value: SessionValue = { orgCode, orgs: ORGS, setOrgCode, users, currentUserId, setCurrentUserId, api, ready, error };
+  const value: SessionValue = { user, api, ready: user !== null, login, logout, loginLoading, loginError };
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

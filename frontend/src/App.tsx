@@ -1,5 +1,6 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "./components/Layout";
+import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { RequisitionsList } from "./pages/RequisitionsList";
 import { RequisitionCreate } from "./pages/RequisitionCreate";
@@ -8,11 +9,24 @@ import { Approvals } from "./pages/Approvals";
 import { PurchaseOrdersList } from "./pages/PurchaseOrdersList";
 import { PurchaseOrderCreate } from "./pages/PurchaseOrderCreate";
 import { PurchaseOrderDetail } from "./pages/PurchaseOrderDetail";
+import { useSession } from "./context/SessionContext";
+
+function RequireAuth({ children }: { children: React.ReactElement }) {
+  const { ready } = useSession();
+  return ready ? children : <Navigate to="/login" replace />;
+}
 
 export default function App() {
   return (
     <Routes>
-      <Route element={<Layout />}>
+      <Route path="/login" element={<Login />} />
+      <Route
+        element={
+          <RequireAuth>
+            <Layout />
+          </RequireAuth>
+        }
+      >
         <Route path="/" element={<Dashboard />} />
         <Route path="/requisitions" element={<RequisitionsList />} />
         <Route path="/requisitions/new" element={<RequisitionCreate />} />

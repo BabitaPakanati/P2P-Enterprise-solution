@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using P2P.Application.Abstractions;
 using P2P.Domain.Audit;
 using P2P.Domain.Identity;
 using P2P.Domain.Organisation;
@@ -10,22 +9,25 @@ using P2P.Domain.Workflow;
 namespace P2P.Infrastructure.Persistence;
 
 /// <summary>
-/// The tenant-scoped DbContext. Every query and every generated migration is scoped
-/// to exactly one organisation's schema - <see cref="TenantSchemaName"/> - resolved
-/// once per request by <see cref="ITenantContext"/> and never overridden mid-request.
-/// Table names are prefixed by module (organisation_*, identity_*, versioning_*,
-/// audit_*, workflow_*) so the logical grouping the requirements call for is visible
-/// directly in the table name, without needing a second layer of Postgres schemas
-/// nested inside the tenant schema (Postgres schemas don't nest).
+/// The tenant-scoped DbContext - but notice it has no idea which tenant it's talking
+/// to. Every table name here is deliberately unqualified (no schema prefix); which
+/// organisation's data that resolves to is entirely a property of the Postgres
+/// connection's <c>search_path</c>, set once per request by whoever builds this
+/// context's <see cref="Microsoft.EntityFrameworkCore.DbContextOptions"/> (see
+/// Program.cs's AddDbContext factory, which reads <see cref="P2P.Application.Abstractions.ITenantContext"/>).
+///
+/// This replaces an earlier design that baked the schema into the compiled EF model
+/// via HasDefaultSchema, which meant every generated migration had a tenant's schema
+/// name hard-coded as a string literal - fine for two dev schemas, a real blocker
+/// for onboarding organisations automatically. With search_path doing the routing,
+/// one migration set works for every schema, unmodified: see
+/// PlatformOrganisationProvisioner.
 /// </summary>
 public sealed class AppDbContext : DbContext
 {
-    public string TenantSchemaName { get; }
-
-    public AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenantContext)
+    public AppDbContext(DbContextOptions<AppDbContext> options)
         : base(options)
     {
-        TenantSchemaName = tenantContext.SchemaName;
     }
 
     // Organisation
@@ -67,8 +69,6 @@ public sealed class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasDefaultSchema(TenantSchemaName);
-
         modelBuilder.Entity<LegalEntity>().ToTable("organisation_legal_entity");
         modelBuilder.Entity<BusinessUnit>().ToTable("organisation_business_unit");
         modelBuilder.Entity<Department>().ToTable("organisation_department");

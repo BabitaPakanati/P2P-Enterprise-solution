@@ -6,17 +6,13 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace P2P.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialFoundation : Migration
+    public partial class InitialSchema : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.EnsureSchema(
-                name: "org_template");
-
             migrationBuilder.CreateTable(
                 name: "audit_log",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -45,7 +41,6 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "identity_authority_assignment",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -72,7 +67,6 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "identity_delegation",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -95,7 +89,6 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "identity_permission",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -109,7 +102,6 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "identity_role",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -124,7 +116,6 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "identity_role_permission",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -138,13 +129,13 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "identity_user",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Email = table.Column<string>(type: "text", nullable: false),
                     DisplayName = table.Column<string>(type: "text", nullable: false),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false),
+                    PasswordHash = table.Column<string>(type: "text", nullable: true),
                     CreatedBy = table.Column<Guid>(type: "uuid", nullable: false),
                     CreatedAtUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     UpdatedBy = table.Column<Guid>(type: "uuid", nullable: true),
@@ -157,7 +148,6 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "organisation_business_unit",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -173,7 +163,6 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "organisation_cost_center",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -189,7 +178,6 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "organisation_department",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -205,7 +193,6 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "organisation_legal_entity",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -222,7 +209,6 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "organisation_location",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -238,8 +224,62 @@ namespace P2P.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "procurement_purchase_order",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    DocumentId = table.Column<Guid>(type: "uuid", nullable: false),
+                    PoNumber = table.Column<string>(type: "text", nullable: false),
+                    SourceRequisitionId = table.Column<Guid>(type: "uuid", nullable: false),
+                    SupplierName = table.Column<string>(type: "text", nullable: false),
+                    BuyerId = table.Column<Guid>(type: "uuid", nullable: false),
+                    PoDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    DeliveryDate = table.Column<DateOnly>(type: "date", nullable: true),
+                    Currency = table.Column<string>(type: "text", nullable: false),
+                    TotalValue = table.Column<decimal>(type: "numeric", nullable: false),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    CreatedBy = table.Column<Guid>(type: "uuid", nullable: false),
+                    CreatedAtUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    UpdatedBy = table.Column<Guid>(type: "uuid", nullable: true),
+                    UpdatedAtUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_procurement_purchase_order", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "procurement_purchase_requisition",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    DocumentId = table.Column<Guid>(type: "uuid", nullable: false),
+                    RequisitionNumber = table.Column<string>(type: "text", nullable: false),
+                    RequesterId = table.Column<Guid>(type: "uuid", nullable: false),
+                    RequestDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    RequiredByDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    RequisitionType = table.Column<string>(type: "text", nullable: false),
+                    Description = table.Column<string>(type: "text", nullable: false),
+                    Category = table.Column<string>(type: "text", nullable: false),
+                    DepartmentId = table.Column<Guid>(type: "uuid", nullable: true),
+                    CostCenterId = table.Column<Guid>(type: "uuid", nullable: true),
+                    DeliveryLocationId = table.Column<Guid>(type: "uuid", nullable: true),
+                    PreferredSupplierName = table.Column<string>(type: "text", nullable: true),
+                    Currency = table.Column<string>(type: "text", nullable: false),
+                    EstimatedValue = table.Column<decimal>(type: "numeric", nullable: false),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    CreatedBy = table.Column<Guid>(type: "uuid", nullable: false),
+                    CreatedAtUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    UpdatedBy = table.Column<Guid>(type: "uuid", nullable: true),
+                    UpdatedAtUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_procurement_purchase_requisition", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "versioning_document",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -258,7 +298,6 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "versioning_document_version",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -272,7 +311,8 @@ namespace P2P.Infrastructure.Persistence.Migrations
                     CreatedAtUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     ChangeReason = table.Column<string>(type: "text", nullable: true),
                     ChangeComment = table.Column<string>(type: "text", nullable: true),
-                    WorkflowInstanceId = table.Column<Guid>(type: "uuid", nullable: true)
+                    WorkflowInstanceId = table.Column<Guid>(type: "uuid", nullable: true),
+                    PayloadJson = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -281,7 +321,6 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "workflow_approval_task",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -304,7 +343,6 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "workflow_definition",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -324,7 +362,6 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "workflow_instance",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -344,7 +381,6 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "workflow_rule",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -361,7 +397,6 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "workflow_step",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -381,7 +416,6 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "workflow_version",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -402,7 +436,6 @@ namespace P2P.Infrastructure.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "audit_field_change",
-                schema: "org_template",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -418,105 +451,150 @@ namespace P2P.Infrastructure.Persistence.Migrations
                     table.ForeignKey(
                         name: "FK_audit_field_change_audit_log_AuditLogId",
                         column: x => x.AuditLogId,
-                        principalSchema: "org_template",
                         principalTable: "audit_log",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "procurement_purchase_order_line",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    PurchaseOrderId = table.Column<Guid>(type: "uuid", nullable: false),
+                    LineNumber = table.Column<int>(type: "integer", nullable: false),
+                    ItemDescription = table.Column<string>(type: "text", nullable: false),
+                    Quantity = table.Column<decimal>(type: "numeric", nullable: false),
+                    Uom = table.Column<string>(type: "text", nullable: false),
+                    UnitPrice = table.Column<decimal>(type: "numeric", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_procurement_purchase_order_line", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_procurement_purchase_order_line_procurement_purchase_order_~",
+                        column: x => x.PurchaseOrderId,
+                        principalTable: "procurement_purchase_order",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "procurement_purchase_requisition_line",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    PurchaseRequisitionId = table.Column<Guid>(type: "uuid", nullable: false),
+                    LineNumber = table.Column<int>(type: "integer", nullable: false),
+                    ItemDescription = table.Column<string>(type: "text", nullable: false),
+                    Quantity = table.Column<decimal>(type: "numeric", nullable: false),
+                    Uom = table.Column<string>(type: "text", nullable: false),
+                    EstimatedUnitPrice = table.Column<decimal>(type: "numeric", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_procurement_purchase_requisition_line", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_procurement_purchase_requisition_line_procurement_purchase_~",
+                        column: x => x.PurchaseRequisitionId,
+                        principalTable: "procurement_purchase_requisition",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateIndex(
                 name: "IX_audit_field_change_AuditLogId",
-                schema: "org_template",
                 table: "audit_field_change",
                 column: "AuditLogId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_procurement_purchase_order_line_PurchaseOrderId",
+                table: "procurement_purchase_order_line",
+                column: "PurchaseOrderId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_procurement_purchase_requisition_line_PurchaseRequisitionId",
+                table: "procurement_purchase_requisition_line",
+                column: "PurchaseRequisitionId");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "audit_field_change",
-                schema: "org_template");
+                name: "audit_field_change");
 
             migrationBuilder.DropTable(
-                name: "identity_authority_assignment",
-                schema: "org_template");
+                name: "identity_authority_assignment");
 
             migrationBuilder.DropTable(
-                name: "identity_delegation",
-                schema: "org_template");
+                name: "identity_delegation");
 
             migrationBuilder.DropTable(
-                name: "identity_permission",
-                schema: "org_template");
+                name: "identity_permission");
 
             migrationBuilder.DropTable(
-                name: "identity_role",
-                schema: "org_template");
+                name: "identity_role");
 
             migrationBuilder.DropTable(
-                name: "identity_role_permission",
-                schema: "org_template");
+                name: "identity_role_permission");
 
             migrationBuilder.DropTable(
-                name: "identity_user",
-                schema: "org_template");
+                name: "identity_user");
 
             migrationBuilder.DropTable(
-                name: "organisation_business_unit",
-                schema: "org_template");
+                name: "organisation_business_unit");
 
             migrationBuilder.DropTable(
-                name: "organisation_cost_center",
-                schema: "org_template");
+                name: "organisation_cost_center");
 
             migrationBuilder.DropTable(
-                name: "organisation_department",
-                schema: "org_template");
+                name: "organisation_department");
 
             migrationBuilder.DropTable(
-                name: "organisation_legal_entity",
-                schema: "org_template");
+                name: "organisation_legal_entity");
 
             migrationBuilder.DropTable(
-                name: "organisation_location",
-                schema: "org_template");
+                name: "organisation_location");
 
             migrationBuilder.DropTable(
-                name: "versioning_document",
-                schema: "org_template");
+                name: "procurement_purchase_order_line");
 
             migrationBuilder.DropTable(
-                name: "versioning_document_version",
-                schema: "org_template");
+                name: "procurement_purchase_requisition_line");
 
             migrationBuilder.DropTable(
-                name: "workflow_approval_task",
-                schema: "org_template");
+                name: "versioning_document");
 
             migrationBuilder.DropTable(
-                name: "workflow_definition",
-                schema: "org_template");
+                name: "versioning_document_version");
 
             migrationBuilder.DropTable(
-                name: "workflow_instance",
-                schema: "org_template");
+                name: "workflow_approval_task");
 
             migrationBuilder.DropTable(
-                name: "workflow_rule",
-                schema: "org_template");
+                name: "workflow_definition");
 
             migrationBuilder.DropTable(
-                name: "workflow_step",
-                schema: "org_template");
+                name: "workflow_instance");
 
             migrationBuilder.DropTable(
-                name: "workflow_version",
-                schema: "org_template");
+                name: "workflow_rule");
 
             migrationBuilder.DropTable(
-                name: "audit_log",
-                schema: "org_template");
+                name: "workflow_step");
+
+            migrationBuilder.DropTable(
+                name: "workflow_version");
+
+            migrationBuilder.DropTable(
+                name: "audit_log");
+
+            migrationBuilder.DropTable(
+                name: "procurement_purchase_order");
+
+            migrationBuilder.DropTable(
+                name: "procurement_purchase_requisition");
         }
     }
 }

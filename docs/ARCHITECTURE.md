@@ -98,15 +98,19 @@ sequenceDiagram
   of a sensitive organisation's schema if a contract requires it — the schema
   boundary is the primary control.
 
-Implementation note: this repo's `AppDbContext` (see
-`backend/P2P.Infrastructure/Persistence/AppDbContext.cs`) resolves
-`ITenantContext.SchemaName` once per request and uses `HasDefaultSchema` in
-`OnModelCreating`, combined with a custom `IModelCacheKeyFactory`
-(`TenantModelCacheKeyFactory`) so EF Core compiles and caches one model per schema
-instead of reusing the first tenant's model for everyone. Table names inside each
-schema carry a module prefix (`organisation_*`, `identity_*`, `versioning_*`,
-`audit_*`, `workflow_*`) so the logical grouping the requirements ask for is visible
-in the table name itself, since Postgres schemas can't nest inside the tenant schema.
+Implementation note (revised): the earlier implementation baked the schema into the
+compiled EF model via `HasDefaultSchema` plus a custom `IModelCacheKeyFactory` -
+correct, but it meant every generated migration had a tenant's schema name hard-coded
+as a string literal, which is exactly why onboarding a new organisation was still a
+manual `dotnet ef migrations script` + text-substitution + `psql` ritual. Replaced
+with a simpler, fully-portable design: `AppDbContext`'s model is schema-agnostic
+(table names are unqualified), and tenant routing is a pure Postgres connection
+concern - the connection string's `search_path` is set per request from
+`ITenantContext.SchemaName` (see `TenantConnectionStrings.ForSchema`). One migration
+set now applies unmodified to every organisation's schema, which is what makes
+`PlatformOrganisationProvisioner` (§9) possible. Table names still carry a module
+prefix (`organisation_*`, `identity_*`, `versioning_*`, `audit_*`, `workflow_*`,
+`procurement_*`) for the same readability reason as before.
 
 ## 3. Deployment portability — AWS now, on-prem on request
 
@@ -228,23 +232,58 @@ flowchart LR
 | On-prem deployment | Decided | Supported via adapter swap, built when a customer needs it |
 | AWS account / networking / RDS sizing | **Deferred** | Planned separately |
 | Secrets Manager configuration | **Deferred** | Planned alongside RDS sizing |
-| Identity provider (Cognito vs. Auth0/WorkOS) | Open | Cognito is the default; revisit before per-org SAML SSO is needed |
+| Identity provider (self-hosted JWT vs. Cognito/Auth0/WorkOS) | Decided (interim) | Self-hosted JWT ships now; revisit before per-org SAML SSO is needed - every endpoint reads identity from claims, so swapping the issuer is a validation-config change, not an endpoint rewrite |
 | Row-Level Security as defense-in-depth | Open | Adopt per-org only if a contract requires it |
 
 ## 9. Next steps
 
 - [x] Scaffold the backend solution (`P2P.Domain/Application/Infrastructure/Api/Workers/Tests`)
 - [x] Model the Foundation entities
-- [x] Build the tenant-aware `AppDbContext` (schema-per-tenant model caching) and prove it compiles a migration
+- [x] Build the tenant-aware `AppDbContext` and prove it compiles a migration
 - [x] Scaffold the React + TS frontend shell
-- [x] Stand up a local Postgres with two seeded org schemas (`org_acme`, `org_globex`) and prove request-level isolation end to end
+- [x] Stand up a local Postgres with two seeded org schemas and prove request-level isolation end to end
 - [x] Build the generic workflow engine's evaluation logic (single-step reference implementation)
 - [x] Build Requisition → PO on top of the Foundation, with a working React UI
-- [ ] Automate the per-schema migration templating step (currently a manual `dotnet ef migrations script --idempotent` + schema-name substitution + `psql` apply, run once by hand - fine for two dev schemas, not for onboarding real organisations)
-- [ ] Replace `ConfigOrganisationRegistry` with a real `platform.organisations`-backed implementation
-- [ ] Multi-step / parallel / escalation workflow support (Phase 4)
+- [x] **Real `platform.organisations` registry** (`PlatformDbContext`) - replaces the appsettings.json stand-in
+- [x] **Automate org provisioning** - `PlatformOrganisationProvisioner` creates the schema and runs migrations against it programmatically (`POST /api/v1/platform/organisations`); the manual script+psql ritual is retired
+- [x] **Real authentication** - self-hosted JWT (`POST /api/v1/auth/login`), replacing the `X-Org-Code`/`X-User-Id` header stand-ins for every endpoint except dev-only bootstrap diagnostics; passwords hashed with ASP.NET Core Identity's `PasswordHasher<T>`
+- [ ] Platform-admin authorization for `/api/v1/platform/organisations` (currently anonymous - flagged directly in the code, not hidden)
+- [ ] Delegation, escalation, and password-reset/account-recovery flows
+- [ ] Multi-step / parallel workflow support (Phase 4)
 - [ ] Sourcing, Supplier, Contract modules (Phase 2); Receiving, Invoice, Matching (Phase 3)
-- [ ] Revisit AWS account structure, RDS sizing, and Secrets Manager once more of the slice is validated
+- [ ] Revisit Cognito/Auth0/SSO once a customer actually needs it (see decision log); revisit AWS account structure, RDS sizing, and Secrets Manager
+
+### Authentication (Phase "harden")
+
+Self-hosted JWT, not a third-party identity provider yet - the honest middle ground
+for where this project is (see the decision log: Cognito/SSO stays a "when a
+customer needs it" item, deferred deliberately, not by accident).
+
+```mermaid
+sequenceDiagram
+    participant U as Browser
+    participant API as API
+    participant PDB as platform.organisations
+    participant ODB as org_&lt;code&gt; schema
+
+    U->>API: POST /auth/login (X-Org-Code: acme, email, password)
+    API->>PDB: resolve org by code
+    API->>ODB: look up user by email (via search_path)
+    API->>API: verify password hash, sign JWT (org_id, org_code, schema, sub)
+    API-->>U: { token, ... }
+
+    U->>API: any /api/v1/* call, Authorization: Bearer <token>
+    API->>API: validate signature/expiry, read claims
+    API->>ODB: query (search_path from the schema claim)
+    API-->>U: response
+```
+
+Every claim the token carries was set once, at login, by the server - never trusted
+from the client afterward. The dev-only bootstrap endpoints
+(`/_diagnostics/seed-foundation`, `/_diagnostics/tenant`) still accept a bare
+`X-Org-Code` header with no token, because they exist specifically to create the
+first users an organisation can log in as - see
+`IdentityResolutionMiddleware`'s `IsAnonymousTenantScopedPath`.
 
 ### Proven locally
 

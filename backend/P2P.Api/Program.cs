@@ -1,15 +1,20 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.IdentityModel.Tokens;
 using P2P.Api.Diagnostics;
 using P2P.Api.MultiTenancy;
 using P2P.Application.Abstractions;
+using P2P.Application.Auth;
 using P2P.Application.Procurement;
 using P2P.Application.Workflow;
 using P2P.Domain.Organisation;
+using P2P.Domain.Platform;
+using P2P.Infrastructure.Auth;
 using P2P.Infrastructure.MultiTenancy;
 using P2P.Infrastructure.Persistence;
 using P2P.Infrastructure.Procurement;
 using P2P.Infrastructure.Workflow;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,10 +25,10 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
     .AllowAnyMethod()));
 
 // --- Multi-tenancy -----------------------------------------------------------------
-// Config-backed registry today (see appsettings.json -> "Tenancy"); swapped for a
-// platform.organisations-backed implementation once that schema exists.
-builder.Services.Configure<TenancyOptions>(builder.Configuration.GetSection(TenancyOptions.SectionName));
-builder.Services.AddScoped<IOrganisationRegistry, ConfigOrganisationRegistry>();
+// Real platform.organisations registry (see PlatformDbContext) - replaces the
+// earlier appsettings.json-backed stand-in now that it exists.
+builder.Services.AddScoped<IOrganisationRegistry, DbOrganisationRegistry>();
+builder.Services.AddScoped<PlatformOrganisationProvisioner>();
 builder.Services.AddScoped<TenantContext>();
 builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
 
@@ -31,18 +36,51 @@ builder.Services.AddScoped<CurrentUserContext>();
 builder.Services.AddScoped<ICurrentUserContext>(sp => sp.GetRequiredService<CurrentUserContext>());
 
 // --- Persistence ---------------------------------------------------------------------
-// One connection string, N schemas: AppDbContext resolves which schema's tables to
-// talk to from ITenantContext, and TenantModelCacheKeyFactory makes EF cache a
-// distinct compiled model per schema instead of reusing the first tenant's model.
+// PlatformDbContext always talks to the `platform` schema. AppDbContext talks to
+// whichever schema ITenantContext resolves for this request, via search_path on the
+// connection string - see TenantConnectionStrings and AppDbContext's class comment
+// for why that's simpler than the schema-baked-into-the-model approach it replaced.
+var baseConnectionString = builder.Configuration.GetConnectionString("Postgres")
+    ?? throw new InvalidOperationException("ConnectionStrings:Postgres is not configured.");
+
+builder.Services.AddDbContext<PlatformDbContext>(options =>
+    options.UseNpgsql(TenantConnectionStrings.ForSchema(baseConnectionString, "platform")));
+
 builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 {
     var tenant = sp.GetRequiredService<ITenantContext>();
-    options
-        .UseNpgsql(
-            builder.Configuration.GetConnectionString("Postgres"),
-            npgsql => npgsql.ScopeMigrationsHistoryToTenant(tenant.SchemaName))
-        .ReplaceService<IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
+    options.UseNpgsql(TenantConnectionStrings.ForSchema(baseConnectionString, tenant.SchemaName));
 });
+
+// --- Auth ------------------------------------------------------------------------------
+builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
+builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+
+var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
+    ?? throw new InvalidOperationException("Jwt configuration is missing - set Jwt:SigningKey via user secrets.");
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        // Without this, the handler silently remaps short claim names ("sub", "name")
+        // to legacy XML-Soap claim type URIs on validation, so a lookup for the
+        // literal "sub" claim IdentityResolutionMiddleware writes finds nothing even
+        // though the token is valid. Keep claim types exactly as JwtTokenService wrote them.
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwtOptions.Issuer,
+            ValidateAudience = true,
+            ValidAudience = jwtOptions.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(1)
+        };
+    });
+builder.Services.AddAuthorization();
 
 // --- Workflow + Procurement ------------------------------------------------------------
 // The engine is entity-type agnostic; each module registers itself as both its own
@@ -60,6 +98,21 @@ builder.Services.AddScoped<IPurchaseOrderService>(sp => sp.GetRequiredService<Pu
 builder.Services.AddScoped<IWorkflowCompletionHandler>(sp => sp.GetRequiredService<PurchaseOrderService>());
 
 var app = builder.Build();
+
+// Ensure the `platform` schema itself exists and is migrated before anything else
+// runs - unlike an org schema (created by PlatformOrganisationProvisioner on demand),
+// this one has to be ready before a single request can resolve a tenant at all.
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    await using var conn = new Npgsql.NpgsqlConnection(baseConnectionString);
+    await conn.OpenAsync();
+    await using (var cmd = new Npgsql.NpgsqlCommand("CREATE SCHEMA IF NOT EXISTS \"platform\"", conn))
+    {
+        await cmd.ExecuteNonQueryAsync();
+    }
+    var platformDb = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+    await platformDb.Database.MigrateAsync();
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -86,26 +139,56 @@ app.Use(async (context, next) =>
 });
 
 app.UseHttpsRedirection();
-app.UseMiddleware<TenantResolutionMiddleware>();
-app.UseMiddleware<CurrentUserMiddleware>();
+app.UseAuthentication();
+app.UseMiddleware<IdentityResolutionMiddleware>(); // reads claims context.User now carries, or falls back to X-Org-Code for dev-only bootstrap paths
+app.UseAuthorization();
 
-app.MapGet("/health", () => Results.Ok(new { status = "healthy", utc = DateTimeOffset.UtcNow }));
+app.MapGet("/health", () => Results.Ok(new { status = "healthy", utc = DateTimeOffset.UtcNow })).AllowAnonymous();
 
-// Diagnostic-only: proves the tenant resolver + schema-aware DbContext wiring end to
-// end. Remove (or restrict to platform admins) once real modules replace it.
+// --- Auth --------------------------------------------------------------------------------
+
+app.MapPost("/api/v1/auth/login", async (IAuthService auth, HttpContext ctx, LoginRequest body) =>
+{
+    if (!ctx.Request.Headers.TryGetValue("X-Org-Code", out var orgCode) || string.IsNullOrWhiteSpace(orgCode))
+    {
+        return Results.BadRequest(new { error = "Missing required header 'X-Org-Code'." });
+    }
+    var result = await auth.LoginAsync(orgCode!, body.Email, body.Password);
+    return Results.Ok(result);
+}).AllowAnonymous();
+
+// --- Platform (org provisioning) ----------------------------------------------------------
+// Anonymous for now - no platform-admin authorization scheme exists yet to gate this
+// behind, which is a real gap before production use (anyone who can reach this
+// endpoint can create an organisation). Automates what was a manual dotnet-ef-script
+// + psql ritual for every new organisation - see PlatformOrganisationProvisioner.
+
+app.MapPost("/api/v1/platform/organisations", async (PlatformOrganisationProvisioner provisioner, ProvisionOrgRequest body) =>
+{
+    var org = await provisioner.ProvisionAsync(body.OrgCode, body.DisplayName);
+    return Results.Ok(new { org.Id, org.OrgCode, org.DisplayName, org.SchemaName, Status = org.Status.ToString() });
+}).AllowAnonymous();
+
+// --- Dev-only diagnostics ------------------------------------------------------------------
+
 app.MapGet("/api/v1/_diagnostics/tenant", (ITenantContext tenant) => Results.Ok(new
 {
     tenant.OrganisationId,
     tenant.OrgCode,
     tenant.SchemaName
-}));
+})).AllowAnonymous();
 
-app.MapGet("/api/v1/_diagnostics/legal-entities", async (AppDbContext db) =>
+app.MapPost("/api/v1/_diagnostics/seed-foundation", async (AppDbContext db, ITenantContext tenant) =>
+    Results.Ok(await FoundationSeeder.SeedAsync(db, tenant.OrgCode, default))).AllowAnonymous();
+
+var diagnostics = app.MapGroup("/api/v1/_diagnostics").RequireAuthorization();
+
+diagnostics.MapGet("/legal-entities", async (AppDbContext db) =>
     Results.Ok(await db.LegalEntities
         .Select(e => new { e.Id, e.Code, e.Name, e.Country, e.BaseCurrency })
         .ToListAsync()));
 
-app.MapPost("/api/v1/_diagnostics/legal-entities", async (AppDbContext db, CreateLegalEntityRequest body) =>
+diagnostics.MapPost("/legal-entities", async (AppDbContext db, CreateLegalEntityRequest body) =>
 {
     var entity = new LegalEntity
     {
@@ -119,83 +202,84 @@ app.MapPost("/api/v1/_diagnostics/legal-entities", async (AppDbContext db, Creat
     return Results.Created($"/api/v1/_diagnostics/legal-entities/{entity.Id}", new { entity.Id, entity.Code, entity.Name });
 });
 
-// Dev-only bootstrap for this vertical slice - see FoundationSeeder for what it
-// creates and why it's not how a real organisation gets provisioned.
-app.MapPost("/api/v1/_diagnostics/seed-foundation", async (AppDbContext db, ITenantContext tenant) =>
-    Results.Ok(await FoundationSeeder.SeedAsync(db, tenant.OrgCode, default)));
+// --- Requisitions (all require a valid token) ---------------------------------------------
 
-// --- Requisitions ----------------------------------------------------------------------
+var requisitions = app.MapGroup("/api/v1/requisitions").RequireAuthorization();
 
-app.MapPost("/api/v1/requisitions", async (IPurchaseRequisitionService svc, ICurrentUserContext user, CreateRequisitionRequest body) =>
+requisitions.MapPost("/", async (IPurchaseRequisitionService svc, ICurrentUserContext user, CreateRequisitionRequest body) =>
 {
     var id = await svc.CreateAsync(user.UserId, body);
     return Results.Created($"/api/v1/requisitions/{id}", new { id });
 });
 
-app.MapPost("/api/v1/requisitions/{id:guid}/submit", async (IPurchaseRequisitionService svc, Guid id) =>
+requisitions.MapPost("/{id:guid}/submit", async (IPurchaseRequisitionService svc, Guid id) =>
 {
     await svc.SubmitAsync(id);
     return Results.NoContent();
 });
 
-app.MapPost("/api/v1/requisitions/{id:guid}/cancel", async (IPurchaseRequisitionService svc, Guid id) =>
+requisitions.MapPost("/{id:guid}/cancel", async (IPurchaseRequisitionService svc, Guid id) =>
 {
     await svc.CancelAsync(id);
     return Results.NoContent();
 });
 
-app.MapGet("/api/v1/requisitions", async (IPurchaseRequisitionService svc, ICurrentUserContext user, bool? mine) =>
+requisitions.MapGet("/", async (IPurchaseRequisitionService svc, ICurrentUserContext user, bool? mine) =>
     Results.Ok(await svc.ListAsync(mine == true ? user.UserId : null)));
 
-app.MapGet("/api/v1/requisitions/{id:guid}", async (IPurchaseRequisitionService svc, Guid id) =>
+requisitions.MapGet("/{id:guid}", async (IPurchaseRequisitionService svc, Guid id) =>
 {
     var dto = await svc.GetAsync(id);
     return dto is null ? Results.NotFound() : Results.Ok(dto);
 });
 
-// --- Purchase Orders -------------------------------------------------------------------
+// --- Purchase Orders -----------------------------------------------------------------------
 
-app.MapPost("/api/v1/purchase-orders", async (IPurchaseOrderService svc, ICurrentUserContext user, CreatePurchaseOrderRequest body) =>
+var purchaseOrders = app.MapGroup("/api/v1/purchase-orders").RequireAuthorization();
+
+purchaseOrders.MapPost("/", async (IPurchaseOrderService svc, ICurrentUserContext user, CreatePurchaseOrderRequest body) =>
 {
     var id = await svc.CreateFromRequisitionAsync(user.UserId, body);
     return Results.Created($"/api/v1/purchase-orders/{id}", new { id });
 });
 
-app.MapPost("/api/v1/purchase-orders/{id:guid}/submit", async (IPurchaseOrderService svc, Guid id) =>
+purchaseOrders.MapPost("/{id:guid}/submit", async (IPurchaseOrderService svc, Guid id) =>
 {
     await svc.SubmitAsync(id);
     return Results.NoContent();
 });
 
-app.MapPost("/api/v1/purchase-orders/{id:guid}/send", async (IPurchaseOrderService svc, Guid id) =>
+purchaseOrders.MapPost("/{id:guid}/send", async (IPurchaseOrderService svc, Guid id) =>
 {
     await svc.SendToSupplierAsync(id);
     return Results.NoContent();
 });
 
-app.MapPost("/api/v1/purchase-orders/{id:guid}/amend", async (IPurchaseOrderService svc, ICurrentUserContext user, Guid id, AmendPurchaseOrderRequest body) =>
+purchaseOrders.MapPost("/{id:guid}/amend", async (IPurchaseOrderService svc, ICurrentUserContext user, Guid id, AmendPurchaseOrderRequest body) =>
 {
     await svc.AmendAsync(id, user.UserId, body);
     return Results.NoContent();
 });
 
-app.MapGet("/api/v1/purchase-orders", async (IPurchaseOrderService svc) => Results.Ok(await svc.ListAsync()));
+purchaseOrders.MapGet("/", async (IPurchaseOrderService svc) => Results.Ok(await svc.ListAsync()));
 
-app.MapGet("/api/v1/purchase-orders/{id:guid}", async (IPurchaseOrderService svc, Guid id) =>
+purchaseOrders.MapGet("/{id:guid}", async (IPurchaseOrderService svc, Guid id) =>
 {
     var dto = await svc.GetAsync(id);
     return dto is null ? Results.NotFound() : Results.Ok(dto);
 });
 
-app.MapGet("/api/v1/purchase-orders/{id:guid}/versions", async (IPurchaseOrderService svc, Guid id) =>
+purchaseOrders.MapGet("/{id:guid}/versions", async (IPurchaseOrderService svc, Guid id) =>
     Results.Ok(await svc.GetVersionHistoryAsync(id)));
 
-// --- Approvals -------------------------------------------------------------------------
+// --- Approvals -------------------------------------------------------------------------------
 
-app.MapGet("/api/v1/approvals/my", async (IApprovalService svc, ICurrentUserContext user) =>
+var approvals = app.MapGroup("/api/v1/approvals").RequireAuthorization();
+
+approvals.MapGet("/my", async (IApprovalService svc, ICurrentUserContext user) =>
     Results.Ok(await svc.GetMyPendingTasksAsync(user.UserId)));
 
-app.MapPost("/api/v1/approvals/{taskId:guid}/decide", async (IApprovalService svc, ICurrentUserContext user, Guid taskId, DecideApprovalRequest body) =>
+approvals.MapPost("/{taskId:guid}/decide", async (IApprovalService svc, ICurrentUserContext user, Guid taskId, DecideApprovalRequest body) =>
 {
     await svc.DecideAsync(taskId, user.UserId, body.Approve, body.Comments);
     return Results.NoContent();
@@ -205,3 +289,5 @@ app.Run();
 
 record CreateLegalEntityRequest(string Code, string Name, string? Country, string? BaseCurrency);
 record DecideApprovalRequest(bool Approve, string? Comments);
+record LoginRequest(string Email, string Password);
+record ProvisionOrgRequest(string OrgCode, string DisplayName);

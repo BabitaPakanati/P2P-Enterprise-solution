@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using P2P.Domain.Identity;
 using P2P.Domain.Workflow;
@@ -5,7 +6,7 @@ using P2P.Infrastructure.Persistence;
 
 namespace P2P.Api.Diagnostics;
 
-public sealed record SeedResult(Guid RequesterId, Guid ApproverId, Guid RoleId, bool AlreadySeeded);
+public sealed record SeedResult(Guid RequesterId, Guid ApproverId, Guid RoleId, bool AlreadySeeded, string DevPassword);
 
 /// <summary>
 /// Dev-only bootstrap: creates one role, one requester, one approver, an authority
@@ -20,6 +21,14 @@ public static class FoundationSeeder
 {
     private const string ManagerRoleCode = "DEPT_MANAGER";
 
+    /// <summary>
+    /// Every seeded user gets this password. Fine for a dev bootstrap that creates
+    /// throwaway demo accounts; would never fly for a real organisation - a real
+    /// provisioning flow (see PlatformOrganisationProvisioner) would invite an admin
+    /// by email and let them set their own password, never mint one.
+    /// </summary>
+    public const string DevPassword = "P2pDemo!2026";
+
     public static async Task<SeedResult> SeedAsync(AppDbContext db, string orgCode, CancellationToken ct)
     {
         var existingRole = await db.Roles.FirstOrDefaultAsync(r => r.Code == ManagerRoleCode, ct);
@@ -30,15 +39,18 @@ public static class FoundationSeeder
                 .Select(a => a.UserId)
                 .FirstAsync(ct);
             var existingRequester = await db.Users.Where(u => u.Email == $"requester@{orgCode}.example").Select(u => u.Id).FirstAsync(ct);
-            return new SeedResult(existingRequester, existingApprover, existingRole.Id, AlreadySeeded: true);
+            return new SeedResult(existingRequester, existingApprover, existingRole.Id, AlreadySeeded: true, DevPassword);
         }
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var now = DateTimeOffset.UtcNow;
+        var hasher = new PasswordHasher<User>();
 
         var role = new Role { Code = ManagerRoleCode, Name = "Department Manager", Description = "Approves requisitions and purchase orders for their department." };
         var requester = new User { Email = $"requester@{orgCode}.example", DisplayName = "Priya Sharma", CreatedAtUtc = now };
         var approver = new User { Email = $"approver@{orgCode}.example", DisplayName = "Karan Mehta", CreatedAtUtc = now };
+        requester.PasswordHash = hasher.HashPassword(requester, DevPassword);
+        approver.PasswordHash = hasher.HashPassword(approver, DevPassword);
         requester.CreatedBy = requester.Id;
         approver.CreatedBy = approver.Id;
 
@@ -88,6 +100,6 @@ public static class FoundationSeeder
         }
 
         await db.SaveChangesAsync(ct);
-        return new SeedResult(requester.Id, approver.Id, role.Id, AlreadySeeded: false);
+        return new SeedResult(requester.Id, approver.Id, role.Id, AlreadySeeded: false, DevPassword);
     }
 }

@@ -7,6 +7,14 @@ public sealed class User : AuditableEntity
     public string Email { get; set; } = default!;
     public string DisplayName { get; set; } = default!;
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// ASP.NET Core Identity's PasswordHasher&lt;User&gt; format (PBKDF2, versioned,
+    /// self-describing) - never a plain password, never reversible. Null for a user
+    /// who hasn't been given a local password yet (e.g. will authenticate via a
+    /// future SSO integration instead).
+    /// </summary>
+    public string? PasswordHash { get; set; }
 }
 
 /// <summary>

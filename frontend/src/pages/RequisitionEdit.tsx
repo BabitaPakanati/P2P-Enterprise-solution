@@ -39,6 +39,7 @@ export function RequisitionEdit() {
         <div className="error-banner" style={{ maxWidth: 800 }}>{error}</div>
       ) : (
         <RequisitionForm
+          onCancel={() => navigate(`/requisitions/${pr.id}`)}
           initial={{
             description: pr.description, category: pr.category, requisitionType: pr.requisitionType,
             requiredByDate: pr.requiredByDate, preferredSupplierName: pr.preferredSupplierName ?? "",

@@ -100,6 +100,7 @@ export function PurchaseOrderCreate() {
 
         <div className="form-actions">
           <button type="submit" className="primary" disabled={saving}><ShoppingCart size={14} strokeWidth={2.25} />{saving ? "Creating…" : "Create Purchase Order"}</button>
+          <button type="button" disabled={saving} onClick={() => navigate(`/requisitions/${pr.id}`)}>Cancel</button>
         </div>
       </form>
     </>

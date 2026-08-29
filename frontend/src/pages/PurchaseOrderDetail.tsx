@@ -136,12 +136,12 @@ export function PurchaseOrderDetail() {
         </div>
       )}
 
-      {tab === "amend" && <AmendForm po={po} onDone={() => { setTab("overview"); reload(); }} />}
+      {tab === "amend" && <AmendForm po={po} onDone={() => { setTab("overview"); reload(); }} onCancel={() => setTab("overview")} />}
     </>
   );
 }
 
-function AmendForm({ po, onDone }: { po: OrderDetail; onDone: () => void }) {
+function AmendForm({ po, onDone, onCancel }: { po: OrderDetail; onDone: () => void; onCancel: () => void }) {
   const { api } = useSession();
   const [supplierName, setSupplierName] = useState(po.supplierName);
   const [deliveryDate, setDeliveryDate] = useState(po.deliveryDate ?? "");
@@ -209,6 +209,7 @@ function AmendForm({ po, onDone }: { po: OrderDetail; onDone: () => void }) {
 
       <div className="form-actions">
         <button type="submit" className="primary" disabled={saving}>{saving ? "Submitting…" : "Submit Amendment for Approval"}</button>
+        <button type="button" disabled={saving} onClick={onCancel}>Cancel</button>
       </div>
     </form>
   );

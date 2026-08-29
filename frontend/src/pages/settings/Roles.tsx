@@ -74,6 +74,7 @@ export function Roles() {
           </div>
           <div className="form-actions">
             <button type="submit" className="primary" disabled={creating}><Shield size={14} strokeWidth={2.25} />{creating ? "Creating…" : "Create Role"}</button>
+            <button type="button" disabled={creating} onClick={() => { setShowForm(false); setCode(""); setName(""); setDescription(""); setError(null); }}>Cancel</button>
           </div>
         </form>
       )}

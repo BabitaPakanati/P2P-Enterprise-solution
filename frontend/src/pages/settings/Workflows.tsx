@@ -140,7 +140,7 @@ function WorkflowCard({ workflow, roles, onChanged, onError }: { workflow: Workf
           <WorkflowStepEditor steps={steps} onChange={setSteps} roles={roles} />
           <div className="form-actions">
             <button type="button" className="primary" disabled={saving} onClick={saveVersion}>{saving ? "Saving…" : "Activate New Version"}</button>
-            <button type="button" onClick={() => setEditing(false)}>Cancel</button>
+            <button type="button" disabled={saving} onClick={() => setEditing(false)}>Cancel</button>
           </div>
         </div>
       )}
@@ -197,7 +197,7 @@ function CreateWorkflowCard({ availableTypes, roles, onCreated, onError }: { ava
       <WorkflowStepEditor steps={steps} onChange={setSteps} roles={roles} />
       <div className="form-actions">
         <button type="submit" className="primary" disabled={creating}><GitBranch size={14} strokeWidth={2.25} />{creating ? "Creating…" : "Create Workflow"}</button>
-        <button type="button" onClick={() => setOpen(false)}>Cancel</button>
+        <button type="button" disabled={creating} onClick={() => { setOpen(false); setSteps([emptyStep(1)]); setName(""); }}>Cancel</button>
       </div>
     </form>
   );

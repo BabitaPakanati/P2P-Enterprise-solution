@@ -74,6 +74,7 @@ export function OrganisationsList() {
           </div>
           <div className="form-actions">
             <button type="submit" className="primary" disabled={creating}><Building2 size={14} strokeWidth={2.25} />{creating ? "Provisioning…" : "Provision Organisation"}</button>
+            <button type="button" disabled={creating} onClick={() => { setShowForm(false); setOrgCode(""); setDisplayName(""); setError(null); }}>Cancel</button>
           </div>
         </form>
       )}

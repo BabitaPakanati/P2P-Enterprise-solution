@@ -21,6 +21,7 @@ export function RequisitionCreate() {
         submitLabel="Save Draft"
         submittingLabel="Saving…"
         submitIcon={<Save size={14} strokeWidth={2.25} />}
+        onCancel={() => navigate("/requisitions")}
         onSubmit={async (values) => {
           const { id } = await createRequisition(api, {
             requiredByDate: values.requiredByDate,

@@ -156,6 +156,7 @@ export function RequisitionDetail() {
 
       {tab === "amend" && (
         <RequisitionForm
+          onCancel={() => setTab("overview")}
           initial={{
             description: pr.description, category: pr.category, requisitionType: pr.requisitionType,
             requiredByDate: pr.requiredByDate, preferredSupplierName: pr.preferredSupplierName ?? "",

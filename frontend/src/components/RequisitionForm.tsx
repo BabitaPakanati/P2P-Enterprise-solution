@@ -20,6 +20,8 @@ interface RequisitionFormProps {
   /** Amending an already-approved requisition needs a reason; creating or editing a draft doesn't. */
   requireChangeReason?: boolean;
   onSubmit: (values: RequisitionFormValues, changeReason: string) => Promise<void>;
+  /** Discards whatever's been typed and leaves the form - every instance of this form needs a way out that isn't submitting. */
+  onCancel: () => void;
   submitLabel: string;
   submittingLabel: string;
   submitIcon: React.ReactNode;
@@ -32,7 +34,7 @@ interface RequisitionFormProps {
  * differ. See RequisitionCreate.tsx / RequisitionEdit.tsx / RequisitionDetail.tsx's
  * amend tab for how each wires this up.
  */
-export function RequisitionForm({ initial, requireChangeReason, onSubmit, submitLabel, submittingLabel, submitIcon, hint }: RequisitionFormProps) {
+export function RequisitionForm({ initial, requireChangeReason, onSubmit, onCancel, submitLabel, submittingLabel, submitIcon, hint }: RequisitionFormProps) {
   const [description, setDescription] = useState(initial?.description ?? "");
   const [category, setCategory] = useState(initial?.category ?? CATEGORIES[0]);
   const [requisitionType, setRequisitionType] = useState(initial?.requisitionType ?? "Standard");
@@ -137,6 +139,7 @@ export function RequisitionForm({ initial, requireChangeReason, onSubmit, submit
 
       <div className="form-actions">
         <button type="submit" className="primary" disabled={saving}>{submitIcon}{saving ? submittingLabel : submitLabel}</button>
+        <button type="button" disabled={saving} onClick={onCancel}>Cancel</button>
       </div>
     </form>
   );

@@ -13,6 +13,7 @@ import { PurchaseOrderCreate } from "./pages/PurchaseOrderCreate";
 import { PurchaseOrderDetail } from "./pages/PurchaseOrderDetail";
 import { Roles } from "./pages/settings/Roles";
 import { Workflows } from "./pages/settings/Workflows";
+import { Fields } from "./pages/settings/Fields";
 import { AdminLogin } from "./pages/admin/AdminLogin";
 import { OrganisationsList } from "./pages/admin/OrganisationsList";
 import { useSession } from "./context/SessionContext";
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />
         <Route path="/settings/roles" element={<Roles />} />
         <Route path="/settings/workflows" element={<Workflows />} />
+        <Route path="/settings/fields" element={<Fields />} />
       </Route>
 
       <Route

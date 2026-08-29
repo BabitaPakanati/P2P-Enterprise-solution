@@ -161,6 +161,7 @@ export function RequisitionDetail() {
             description: pr.description, category: pr.category, requisitionType: pr.requisitionType,
             requiredByDate: pr.requiredByDate, preferredSupplierName: pr.preferredSupplierName ?? "",
             lines: pr.lines.map((l) => ({ itemDescription: l.itemDescription, quantity: l.quantity, uom: l.uom, estimatedUnitPrice: l.estimatedUnitPrice })),
+            customFields: pr.customFields,
           }}
           requireChangeReason
           hint={`This creates a new pending version — version ${pr.currentVersionNumber} stays the effective one until this is approved.`}
@@ -177,6 +178,7 @@ export function RequisitionDetail() {
               preferredSupplierName: values.preferredSupplierName || undefined,
               changeReason,
               lines: values.lines,
+              customFields: values.customFields,
             });
             setTab("overview");
             reload();

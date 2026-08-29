@@ -10,7 +10,8 @@ public sealed record CreateRequisitionRequest(
     string Category,
     string Currency,
     string? PreferredSupplierName,
-    IReadOnlyList<CreateRequisitionLineRequest> Lines);
+    IReadOnlyList<CreateRequisitionLineRequest> Lines,
+    IReadOnlyDictionary<string, string>? CustomFields = null);
 
 /// <summary>Same shape as create - editing a Draft replaces the whole thing, never patches individual fields.</summary>
 public sealed record UpdateRequisitionRequest(
@@ -20,7 +21,8 @@ public sealed record UpdateRequisitionRequest(
     string Category,
     string Currency,
     string? PreferredSupplierName,
-    IReadOnlyList<CreateRequisitionLineRequest> Lines);
+    IReadOnlyList<CreateRequisitionLineRequest> Lines,
+    IReadOnlyDictionary<string, string>? CustomFields = null);
 
 /// <summary>Same shape as update, plus the reason an already-approved requisition is being changed.</summary>
 public sealed record AmendRequisitionRequest(
@@ -31,7 +33,8 @@ public sealed record AmendRequisitionRequest(
     string Currency,
     string? PreferredSupplierName,
     string ChangeReason,
-    IReadOnlyList<CreateRequisitionLineRequest> Lines);
+    IReadOnlyList<CreateRequisitionLineRequest> Lines,
+    IReadOnlyDictionary<string, string>? CustomFields = null);
 
 public sealed record RequisitionLineDto(
     Guid Id, int LineNumber, string ItemDescription, decimal Quantity, string Uom, decimal EstimatedUnitPrice, decimal EstimatedValue);
@@ -63,7 +66,8 @@ public sealed record RequisitionDetailDto(
     string Currency,
     string Status,
     int CurrentVersionNumber,
-    IReadOnlyList<RequisitionLineDto> Lines);
+    IReadOnlyList<RequisitionLineDto> Lines,
+    IReadOnlyDictionary<string, string> CustomFields);
 
 /// <summary>
 /// Create → (Update while Draft) → Submit → (workflow decides) → Approved/Rejected

@@ -43,6 +43,14 @@ public sealed class PurchaseRequisition : AuditableEntity
 
     public PurchaseRequisitionStatus Status { get; set; } = PurchaseRequisitionStatus.Draft;
 
+    /// <summary>
+    /// This org's configured extra fields for PurchaseRequisition, as a flat
+    /// {fieldKey: value} JSON object - every value is stored as its string form
+    /// regardless of the field's configured DataType, validated against
+    /// FieldDefinition on every write. See CustomFieldValidator.
+    /// </summary>
+    public string CustomFieldsJson { get; set; } = "{}";
+
     private readonly List<PurchaseRequisitionLine> _lines = new();
     public IReadOnlyCollection<PurchaseRequisitionLine> Lines => _lines.AsReadOnly();
     public void AddLine(PurchaseRequisitionLine line) => _lines.Add(line);

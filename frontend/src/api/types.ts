@@ -27,6 +27,7 @@ export interface RequisitionDetail extends RequisitionSummary {
   preferredSupplierName: string | null;
   currentVersionNumber: number;
   lines: RequisitionLine[];
+  customFields: Record<string, string>;
 }
 
 export interface CreateRequisitionLineInput {
@@ -44,6 +45,7 @@ export interface CreateRequisitionInput {
   currency: string;
   preferredSupplierName?: string;
   lines: CreateRequisitionLineInput[];
+  customFields?: Record<string, string>;
 }
 
 /** Same shape as create - editing a Draft replaces the whole thing. */
@@ -80,6 +82,7 @@ export interface OrderDetail extends OrderSummary {
   buyerId: string;
   currentVersionNumber: number;
   lines: OrderLine[];
+  customFields: Record<string, string>;
 }
 
 export interface CreateOrderLineInput {
@@ -94,6 +97,7 @@ export interface CreatePurchaseOrderInput {
   supplierName: string;
   deliveryDate?: string;
   lines: CreateOrderLineInput[];
+  customFields?: Record<string, string>;
 }
 
 export interface AmendPurchaseOrderInput {
@@ -101,6 +105,7 @@ export interface AmendPurchaseOrderInput {
   deliveryDate?: string;
   changeReason: string;
   lines: CreateOrderLineInput[];
+  customFields?: Record<string, string>;
 }
 
 export interface DocumentVersion {

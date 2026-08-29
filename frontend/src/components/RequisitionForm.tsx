@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { ApiError } from "../api/client";
 import type { CreateRequisitionLineInput } from "../api/types";
+import { DynamicFields, type CustomFieldValues } from "./DynamicFields";
 
 const CATEGORIES = ["IT Services", "Facilities Management", "Professional Services", "MRO", "Marketing Services", "Logistics", "Packaging", "Industrial Raw Materials", "Utilities", "Capex"];
 const emptyLine = (): CreateRequisitionLineInput => ({ itemDescription: "", quantity: 1, uom: "EA", estimatedUnitPrice: 0 });
@@ -13,6 +14,7 @@ export interface RequisitionFormValues {
   requiredByDate: string;
   preferredSupplierName: string;
   lines: CreateRequisitionLineInput[];
+  customFields: CustomFieldValues;
 }
 
 interface RequisitionFormProps {
@@ -41,6 +43,7 @@ export function RequisitionForm({ initial, requireChangeReason, onSubmit, onCanc
   const [requiredByDate, setRequiredByDate] = useState(initial?.requiredByDate ?? "");
   const [preferredSupplierName, setPreferredSupplierName] = useState(initial?.preferredSupplierName ?? "");
   const [lines, setLines] = useState<CreateRequisitionLineInput[]>(initial?.lines?.length ? initial.lines : [emptyLine()]);
+  const [customFields, setCustomFields] = useState<CustomFieldValues>(initial?.customFields ?? {});
   const [changeReason, setChangeReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +61,7 @@ export function RequisitionForm({ initial, requireChangeReason, onSubmit, onCanc
     if (requireChangeReason && !changeReason.trim()) { setError("A change reason is required."); return; }
     setSaving(true);
     try {
-      await onSubmit({ description, category, requisitionType, requiredByDate, preferredSupplierName, lines }, changeReason);
+      await onSubmit({ description, category, requisitionType, requiredByDate, preferredSupplierName, lines, customFields }, changeReason);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Something went wrong.");
     } finally {
@@ -102,6 +105,8 @@ export function RequisitionForm({ initial, requireChangeReason, onSubmit, onCanc
           <input value={preferredSupplierName} onChange={(e) => setPreferredSupplierName(e.target.value)} placeholder="e.g. Dell Technologies" />
         </div>
       </div>
+
+      <DynamicFields entityType="PurchaseRequisition" values={customFields} onChange={setCustomFields} />
 
       {requireChangeReason && (
         <div className="field" style={{ marginBottom: "1rem" }}>

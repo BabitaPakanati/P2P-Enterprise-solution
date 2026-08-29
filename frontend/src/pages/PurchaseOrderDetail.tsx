@@ -6,6 +6,7 @@ import { getOrder, getOrderVersions, submitOrder, sendOrder, amendOrder } from "
 import { ApiError } from "../api/client";
 import type { OrderDetail, DocumentVersion, CreateOrderLineInput } from "../api/types";
 import { StatusBadge } from "../components/StatusBadge";
+import { DynamicFields, type CustomFieldValues } from "../components/DynamicFields";
 
 interface PoSnapshotLine { ItemDescription: string; Quantity: number; Uom: string; UnitPrice: number }
 interface PoSnapshot { SupplierName: string; DeliveryDate: string | null; TotalValue: number; Currency: string; Lines: PoSnapshotLine[] }
@@ -147,6 +148,7 @@ function AmendForm({ po, onDone, onCancel }: { po: OrderDetail; onDone: () => vo
   const [deliveryDate, setDeliveryDate] = useState(po.deliveryDate ?? "");
   const [changeReason, setChangeReason] = useState("");
   const [lines, setLines] = useState<CreateOrderLineInput[]>(po.lines.map((l) => ({ itemDescription: l.itemDescription, quantity: l.quantity, uom: l.uom, unitPrice: l.unitPrice })));
+  const [customFields, setCustomFields] = useState<CustomFieldValues>(po.customFields);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -161,7 +163,7 @@ function AmendForm({ po, onDone, onCancel }: { po: OrderDetail; onDone: () => vo
     setSaving(true);
     setError(null);
     try {
-      await amendOrder(api, po.id, { supplierName, deliveryDate: deliveryDate || undefined, changeReason, lines });
+      await amendOrder(api, po.id, { supplierName, deliveryDate: deliveryDate || undefined, changeReason, lines, customFields });
       onDone();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Amendment failed.");
@@ -202,6 +204,8 @@ function AmendForm({ po, onDone, onCancel }: { po: OrderDetail; onDone: () => vo
         </tbody>
       </table>
       <button type="button" className="small" style={{ marginTop: "0.6rem" }} onClick={() => setLines((prev) => [...prev, { itemDescription: "", quantity: 1, uom: "EA", unitPrice: 0 }])}>+ Add line</button>
+
+      <DynamicFields entityType="PurchaseOrder" values={customFields} onChange={setCustomFields} />
 
       <div className="summary-list" style={{ marginTop: "1.1rem" }}>
         <div className="row"><span className="k">Proposed total</span><span className="v-strong">{po.currency} {total.toLocaleString()}</span></div>

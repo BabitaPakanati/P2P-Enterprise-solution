@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { LayoutDashboard, FileText, CheckSquare, ShoppingCart, Layers, LogOut, Shield, GitBranch } from "lucide-react";
+import { LayoutDashboard, FileText, CheckSquare, ShoppingCart, Layers, LogOut, Shield, GitBranch, SlidersHorizontal } from "lucide-react";
 import { useSession } from "../context/SessionContext";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -13,6 +13,7 @@ const NAV = [
 const SETTINGS_NAV = [
   { to: "/settings/roles", label: "Approval Roles", icon: Shield, end: false },
   { to: "/settings/workflows", label: "Workflows", icon: GitBranch, end: false },
+  { to: "/settings/fields", label: "Custom Fields", icon: SlidersHorizontal, end: false },
 ];
 
 function initials(label: string) {

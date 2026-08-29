@@ -31,6 +31,7 @@ export function RequisitionCreate() {
             currency: "USD",
             preferredSupplierName: values.preferredSupplierName || undefined,
             lines: values.lines,
+            customFields: values.customFields,
           });
           navigate(`/requisitions/${id}`);
         }}

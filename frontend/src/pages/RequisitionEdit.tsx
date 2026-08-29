@@ -44,6 +44,7 @@ export function RequisitionEdit() {
             description: pr.description, category: pr.category, requisitionType: pr.requisitionType,
             requiredByDate: pr.requiredByDate, preferredSupplierName: pr.preferredSupplierName ?? "",
             lines: pr.lines.map((l) => ({ itemDescription: l.itemDescription, quantity: l.quantity, uom: l.uom, estimatedUnitPrice: l.estimatedUnitPrice })),
+            customFields: pr.customFields,
           }}
           submitLabel="Save Changes"
           submittingLabel="Saving…"
@@ -57,6 +58,7 @@ export function RequisitionEdit() {
               currency: "USD",
               preferredSupplierName: values.preferredSupplierName || undefined,
               lines: values.lines,
+              customFields: values.customFields,
             });
             navigate(`/requisitions/${pr.id}`);
           }}

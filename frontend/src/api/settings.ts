@@ -69,6 +69,50 @@ export interface CreateWorkflowDefinitionInput {
 
 export const RULE_OPERATORS = ["Equals", "NotEquals", "GreaterThan", "LessThan", "GreaterOrEqual", "LessOrEqual"] as const;
 export const KNOWN_ENTITY_TYPES = ["PurchaseRequisition", "PurchaseOrder"] as const;
+export const FIELD_DATA_TYPES = ["Text", "Number", "Date", "Boolean", "Select"] as const;
+export type FieldDataType = (typeof FIELD_DATA_TYPES)[number];
+
+export interface FieldDefinitionDto {
+  id: string;
+  entityType: string;
+  fieldKey: string;
+  label: string;
+  dataType: FieldDataType;
+  isRequired: boolean;
+  selectOptions: string[] | null;
+  dependsOnFieldKey: string | null;
+  dependsOnValue: string | null;
+  sequence: number;
+  isActive: boolean;
+}
+
+export interface CreateFieldDefinitionInput {
+  entityType: string;
+  fieldKey: string;
+  label: string;
+  dataType: FieldDataType;
+  isRequired: boolean;
+  selectOptions?: string[];
+  dependsOnFieldKey?: string;
+  dependsOnValue?: string;
+  sequence: number;
+}
+
+export interface UpdateFieldDefinitionInput {
+  label: string;
+  dataType: FieldDataType;
+  isRequired: boolean;
+  selectOptions?: string[];
+  dependsOnFieldKey?: string;
+  dependsOnValue?: string;
+  sequence: number;
+}
+
+export const listFields = (api: Api, entityType?: string) =>
+  api.get<FieldDefinitionDto[]>(`/api/v1/admin/fields${entityType ? `?entityType=${entityType}` : ""}`);
+export const createField = (api: Api, body: CreateFieldDefinitionInput) => api.post<{ id: string }>("/api/v1/admin/fields", body);
+export const updateField = (api: Api, id: string, body: UpdateFieldDefinitionInput) => api.put<void>(`/api/v1/admin/fields/${id}`, body);
+export const deactivateField = (api: Api, id: string) => api.post<void>(`/api/v1/admin/fields/${id}/deactivate`);
 
 export const listRoles = (api: Api) => api.get<RoleDto[]>("/api/v1/admin/roles");
 export const createRole = (api: Api, body: CreateRoleInput) => api.post<{ id: string }>("/api/v1/admin/roles", body);

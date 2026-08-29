@@ -36,6 +36,9 @@ public sealed class PurchaseOrder : AuditableEntity
 
     public PurchaseOrderStatus Status { get; set; } = PurchaseOrderStatus.Draft;
 
+    /// <summary>This org's configured extra fields for PurchaseOrder - see PurchaseRequisition.CustomFieldsJson's comment; identical mechanism.</summary>
+    public string CustomFieldsJson { get; set; } = "{}";
+
     private readonly List<PurchaseOrderLine> _lines = new();
     public IReadOnlyCollection<PurchaseOrderLine> Lines => _lines.AsReadOnly();
     public void ReplaceLines(IEnumerable<PurchaseOrderLine> lines)

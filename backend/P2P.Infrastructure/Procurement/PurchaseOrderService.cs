@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using P2P.Application.Abstractions;
+using P2P.Application.Configuration;
 using P2P.Application.Procurement;
 using P2P.Application.Workflow;
 using P2P.Domain.Audit;
@@ -16,14 +17,16 @@ public sealed class PurchaseOrderService : IPurchaseOrderService, IWorkflowCompl
     private readonly AppDbContext _db;
     private readonly IWorkflowEngine _workflowEngine;
     private readonly ICurrentUserContext _currentUser;
+    private readonly ICustomFieldValidator _customFields;
 
     public string EntityType => "PurchaseOrder";
 
-    public PurchaseOrderService(AppDbContext db, IWorkflowEngine workflowEngine, ICurrentUserContext currentUser)
+    public PurchaseOrderService(AppDbContext db, IWorkflowEngine workflowEngine, ICurrentUserContext currentUser, ICustomFieldValidator customFields)
     {
         _db = db;
         _workflowEngine = workflowEngine;
         _currentUser = currentUser;
+        _customFields = customFields;
     }
 
     public async Task<Guid> CreateFromRequisitionAsync(Guid buyerId, CreatePurchaseOrderRequest request, CancellationToken ct = default)
@@ -85,6 +88,7 @@ public sealed class PurchaseOrderService : IPurchaseOrderService, IWorkflowCompl
             UnitPrice = l.UnitPrice
         }));
         po.TotalValue = po.Lines.Sum(l => l.LineValue);
+        po.CustomFieldsJson = await _customFields.ValidateAndSerializeAsync(EntityType, request.CustomFields, ct);
         version.PayloadJson = Snapshot(po);
 
         pr.Status = PurchaseRequisitionStatus.Ordered;
@@ -170,6 +174,7 @@ public sealed class PurchaseOrderService : IPurchaseOrderService, IWorkflowCompl
         var now = DateTimeOffset.UtcNow;
 
         var proposedTotal = request.Lines.Sum(l => l.Quantity * l.UnitPrice);
+        var proposedCustomFields = await _customFields.ValidateAndSerializeAsync(EntityType, request.CustomFields, ct);
         var newVersion = new DocumentVersion
         {
             DocumentId = document.Id,
@@ -182,7 +187,8 @@ public sealed class PurchaseOrderService : IPurchaseOrderService, IWorkflowCompl
             ChangeReason = request.ChangeReason,
             PayloadJson = JsonSerializer.Serialize(new PoSnapshot(
                 request.SupplierName, request.DeliveryDate, proposedTotal, po.Currency,
-                request.Lines.Select(l => new PoSnapshotLine(l.ItemDescription, l.Quantity, l.Uom, l.UnitPrice)).ToList()))
+                request.Lines.Select(l => new PoSnapshotLine(l.ItemDescription, l.Quantity, l.Uom, l.UnitPrice)).ToList(),
+                proposedCustomFields))
         };
 
         // The V1 (current) version is untouched and stays Active/effective - the
@@ -217,7 +223,8 @@ public sealed class PurchaseOrderService : IPurchaseOrderService, IWorkflowCompl
         return new OrderDetailDto(
             po.Id, po.DocumentId, po.PoNumber, po.SourceRequisitionId, po.SupplierName, po.BuyerId,
             po.PoDate, po.DeliveryDate, po.TotalValue, po.Currency, po.Status.ToString(), versionNumber,
-            po.Lines.OrderBy(l => l.LineNumber).Select(l => new OrderLineDto(l.Id, l.LineNumber, l.ItemDescription, l.Quantity, l.Uom, l.UnitPrice, l.LineValue)).ToList());
+            po.Lines.OrderBy(l => l.LineNumber).Select(l => new OrderLineDto(l.Id, l.LineNumber, l.ItemDescription, l.Quantity, l.Uom, l.UnitPrice, l.LineValue)).ToList(),
+            DeserializeCustomFields(po.CustomFieldsJson));
     }
 
     public async Task<IReadOnlyList<OrderSummaryDto>> ListAsync(CancellationToken ct = default)
@@ -258,6 +265,7 @@ public sealed class PurchaseOrderService : IPurchaseOrderService, IWorkflowCompl
             po.SupplierName = snapshot.SupplierName;
             po.DeliveryDate = snapshot.DeliveryDate;
             po.TotalValue = snapshot.TotalValue;
+            po.CustomFieldsJson = snapshot.CustomFieldsJson;
 
             // Mutating the tracked entity's backing collection directly (via
             // ReplaceLines) and letting SaveChanges snapshot-diff it turned out to be
@@ -332,8 +340,11 @@ public sealed class PurchaseOrderService : IPurchaseOrderService, IWorkflowCompl
 
     private static string Snapshot(PurchaseOrder po) => JsonSerializer.Serialize(new PoSnapshot(
         po.SupplierName, po.DeliveryDate, po.TotalValue, po.Currency,
-        po.Lines.Select(l => new PoSnapshotLine(l.ItemDescription, l.Quantity, l.Uom, l.UnitPrice)).ToList()));
+        po.Lines.Select(l => new PoSnapshotLine(l.ItemDescription, l.Quantity, l.Uom, l.UnitPrice)).ToList(), po.CustomFieldsJson));
 
-    private sealed record PoSnapshot(string SupplierName, DateOnly? DeliveryDate, decimal TotalValue, string Currency, List<PoSnapshotLine> Lines);
+    private static IReadOnlyDictionary<string, string> DeserializeCustomFields(string json) =>
+        JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
+
+    private sealed record PoSnapshot(string SupplierName, DateOnly? DeliveryDate, decimal TotalValue, string Currency, List<PoSnapshotLine> Lines, string CustomFieldsJson);
     private sealed record PoSnapshotLine(string ItemDescription, decimal Quantity, string Uom, decimal UnitPrice);
 }

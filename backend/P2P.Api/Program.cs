@@ -10,7 +10,9 @@ using P2P.Application.Procurement;
 using P2P.Application.Workflow;
 using P2P.Domain.Organisation;
 using P2P.Domain.Platform;
+using P2P.Application.Configuration;
 using P2P.Infrastructure.Admin;
+using P2P.Infrastructure.Configuration;
 using P2P.Infrastructure.Auth;
 using P2P.Infrastructure.MultiTenancy;
 using P2P.Infrastructure.Persistence;
@@ -104,6 +106,8 @@ builder.Services.AddScoped<IWorkflowCompletionHandler>(sp => sp.GetRequiredServi
 // --- Org-level admin (roles, workflow configuration) ------------------------------------
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IWorkflowConfigService, WorkflowConfigService>();
+builder.Services.AddScoped<IFieldDefinitionService, FieldDefinitionService>();
+builder.Services.AddScoped<ICustomFieldValidator, CustomFieldValidator>();
 
 var app = builder.Build();
 
@@ -343,6 +347,23 @@ admin.MapPost("/workflows", async (IWorkflowConfigService svc, ICurrentUserConte
 
 admin.MapPost("/workflows/{id:guid}/versions", async (IWorkflowConfigService svc, ICurrentUserContext user, Guid id, CreateWorkflowVersionRequest body) =>
     Results.Ok(new { Id = await svc.CreateNewVersionAsync(id, user.UserId, body) }));
+
+admin.MapGet("/fields", async (IFieldDefinitionService svc, string? entityType) => Results.Ok(await svc.ListAsync(entityType)));
+
+admin.MapPost("/fields", async (IFieldDefinitionService svc, CreateFieldDefinitionRequest body) =>
+    Results.Ok(new { Id = await svc.CreateAsync(body) }));
+
+admin.MapPut("/fields/{id:guid}", async (IFieldDefinitionService svc, Guid id, UpdateFieldDefinitionRequest body) =>
+{
+    await svc.UpdateAsync(id, body);
+    return Results.NoContent();
+});
+
+admin.MapPost("/fields/{id:guid}/deactivate", async (IFieldDefinitionService svc, Guid id) =>
+{
+    await svc.DeactivateAsync(id);
+    return Results.NoContent();
+});
 
 app.Run();
 

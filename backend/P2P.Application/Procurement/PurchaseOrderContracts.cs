@@ -7,14 +7,16 @@ public sealed record CreatePurchaseOrderRequest(
     Guid SourceRequisitionId,
     string SupplierName,
     DateOnly? DeliveryDate,
-    IReadOnlyList<CreateOrderLineRequest> Lines);
+    IReadOnlyList<CreateOrderLineRequest> Lines,
+    IReadOnlyDictionary<string, string>? CustomFields = null);
 
 /// <summary>Same shape as create - amending a PO always replaces the full line set of the new version, never patches individual fields in place.</summary>
 public sealed record AmendPurchaseOrderRequest(
     string SupplierName,
     DateOnly? DeliveryDate,
     string ChangeReason,
-    IReadOnlyList<CreateOrderLineRequest> Lines);
+    IReadOnlyList<CreateOrderLineRequest> Lines,
+    IReadOnlyDictionary<string, string>? CustomFields = null);
 
 public sealed record OrderLineDto(
     Guid Id, int LineNumber, string ItemDescription, decimal Quantity, string Uom, decimal UnitPrice, decimal LineValue);
@@ -42,7 +44,8 @@ public sealed record OrderDetailDto(
     string Currency,
     string Status,
     int CurrentVersionNumber,
-    IReadOnlyList<OrderLineDto> Lines);
+    IReadOnlyList<OrderLineDto> Lines,
+    IReadOnlyDictionary<string, string> CustomFields);
 
 public sealed record DocumentVersionDto(
     Guid Id,

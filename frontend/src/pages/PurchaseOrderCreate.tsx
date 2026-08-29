@@ -5,6 +5,7 @@ import { useSession } from "../context/SessionContext";
 import { getRequisition, createOrder } from "../api/procurement";
 import { ApiError } from "../api/client";
 import type { RequisitionDetail, CreateOrderLineInput } from "../api/types";
+import { DynamicFields, type CustomFieldValues } from "../components/DynamicFields";
 
 export function PurchaseOrderCreate() {
   const [params] = useSearchParams();
@@ -16,6 +17,7 @@ export function PurchaseOrderCreate() {
   const [supplierName, setSupplierName] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
   const [lines, setLines] = useState<CreateOrderLineInput[]>([]);
+  const [customFields, setCustomFields] = useState<CustomFieldValues>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,7 +43,7 @@ export function PurchaseOrderCreate() {
     setError(null);
     try {
       const { id } = await createOrder(api, {
-        sourceRequisitionId: requisitionId, supplierName, deliveryDate: deliveryDate || undefined, lines,
+        sourceRequisitionId: requisitionId, supplierName, deliveryDate: deliveryDate || undefined, lines, customFields,
       });
       navigate(`/purchase-orders/${id}`);
     } catch (e) {
@@ -93,6 +95,8 @@ export function PurchaseOrderCreate() {
             ))}
           </tbody>
         </table>
+
+        <DynamicFields entityType="PurchaseOrder" values={customFields} onChange={setCustomFields} />
 
         <div className="summary-list" style={{ marginTop: "1.1rem" }}>
           <div className="row"><span className="k">PO total</span><span className="v-strong">{pr.currency} {total.toLocaleString()}</span></div>

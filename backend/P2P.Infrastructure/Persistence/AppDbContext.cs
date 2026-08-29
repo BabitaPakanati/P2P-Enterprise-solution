@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using P2P.Domain.Audit;
+using P2P.Domain.Configuration;
 using P2P.Domain.Identity;
 using P2P.Domain.Organisation;
 using P2P.Domain.Procurement;
@@ -67,6 +68,9 @@ public sealed class AppDbContext : DbContext
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
     public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();
 
+    // Configuration
+    public DbSet<FieldDefinition> FieldDefinitions => Set<FieldDefinition>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<LegalEntity>().ToTable("organisation_legal_entity");
@@ -119,6 +123,12 @@ public sealed class AppDbContext : DbContext
         {
             b.ToTable("procurement_purchase_order_line");
             b.Ignore(l => l.LineValue); // computed (Quantity * UnitPrice), not stored
+        });
+
+        modelBuilder.Entity<FieldDefinition>(b =>
+        {
+            b.ToTable("configuration_field_definition");
+            b.HasIndex(f => new { f.EntityType, f.FieldKey }).IsUnique();
         });
     }
 }

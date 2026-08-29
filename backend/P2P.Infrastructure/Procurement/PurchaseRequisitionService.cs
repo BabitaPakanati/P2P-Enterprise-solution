@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using P2P.Application.Abstractions;
+using P2P.Application.Configuration;
 using P2P.Application.Procurement;
 using P2P.Application.Workflow;
 using P2P.Domain.Audit;
@@ -21,14 +22,16 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
     private readonly AppDbContext _db;
     private readonly IWorkflowEngine _workflowEngine;
     private readonly ICurrentUserContext _currentUser;
+    private readonly ICustomFieldValidator _customFields;
 
     public string EntityType => "PurchaseRequisition";
 
-    public PurchaseRequisitionService(AppDbContext db, IWorkflowEngine workflowEngine, ICurrentUserContext currentUser)
+    public PurchaseRequisitionService(AppDbContext db, IWorkflowEngine workflowEngine, ICurrentUserContext currentUser, ICustomFieldValidator customFields)
     {
         _db = db;
         _workflowEngine = workflowEngine;
         _currentUser = currentUser;
+        _customFields = customFields;
     }
 
     public async Task<Guid> CreateAsync(Guid requesterId, CreateRequisitionRequest request, CancellationToken ct = default)
@@ -79,6 +82,7 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
             pr.AddLine(line);
         }
         pr.EstimatedValue = pr.Lines.Sum(l => l.EstimatedValue);
+        pr.CustomFieldsJson = await _customFields.ValidateAndSerializeAsync(EntityType, request.CustomFields, ct);
         version.PayloadJson = Snapshot(pr);
 
         _db.Documents.Add(document);
@@ -113,6 +117,7 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
         _db.PurchaseRequisitionLines.AddRange(newLines);
         pr.ReplaceLines(newLines);
         pr.EstimatedValue = pr.Lines.Sum(l => l.EstimatedValue);
+        pr.CustomFieldsJson = await _customFields.ValidateAndSerializeAsync(EntityType, request.CustomFields, ct);
         pr.UpdatedBy = _currentUser.UserId;
         pr.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
@@ -227,6 +232,7 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
         var now = DateTimeOffset.UtcNow;
 
         var proposedTotal = request.Lines.Sum(l => l.Quantity * l.EstimatedUnitPrice);
+        var proposedCustomFields = await _customFields.ValidateAndSerializeAsync(EntityType, request.CustomFields, ct);
         var newVersion = new DocumentVersion
         {
             DocumentId = document.Id,
@@ -240,7 +246,8 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
             PayloadJson = JsonSerializer.Serialize(new PrSnapshot(
                 request.Description, request.Category, request.RequisitionType, request.RequiredByDate,
                 request.PreferredSupplierName, proposedTotal, request.Currency,
-                request.Lines.Select(l => new PrSnapshotLine(l.ItemDescription, l.Quantity, l.Uom, l.EstimatedUnitPrice)).ToList()))
+                request.Lines.Select(l => new PrSnapshotLine(l.ItemDescription, l.Quantity, l.Uom, l.EstimatedUnitPrice)).ToList(),
+                proposedCustomFields))
         };
 
         // pr's live fields and currentVersion are untouched - the proposal lives only
@@ -275,7 +282,8 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
             pr.Id, pr.DocumentId, pr.RequisitionNumber, pr.RequesterId, pr.RequestDate, pr.RequiredByDate,
             pr.RequisitionType, pr.Description, pr.Category, pr.PreferredSupplierName, pr.EstimatedValue, pr.Currency,
             pr.Status.ToString(), versionNumber,
-            pr.Lines.Select(l => new RequisitionLineDto(l.Id, l.LineNumber, l.ItemDescription, l.Quantity, l.Uom, l.EstimatedUnitPrice, l.EstimatedValue)).ToList());
+            pr.Lines.Select(l => new RequisitionLineDto(l.Id, l.LineNumber, l.ItemDescription, l.Quantity, l.Uom, l.EstimatedUnitPrice, l.EstimatedValue)).ToList(),
+            DeserializeCustomFields(pr.CustomFieldsJson));
     }
 
     public async Task<IReadOnlyList<RequisitionSummaryDto>> ListAsync(Guid? requesterId, CancellationToken ct = default)
@@ -324,6 +332,7 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
             pr.RequiredByDate = snapshot.RequiredByDate;
             pr.PreferredSupplierName = snapshot.PreferredSupplierName;
             pr.EstimatedValue = snapshot.EstimatedValue;
+            pr.CustomFieldsJson = snapshot.CustomFieldsJson;
 
             var newLines = snapshot.Lines.Select((l, i) => new PurchaseRequisitionLine
             {
@@ -424,10 +433,13 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
 
     private static string Snapshot(PurchaseRequisition pr) => JsonSerializer.Serialize(new PrSnapshot(
         pr.Description, pr.Category, pr.RequisitionType, pr.RequiredByDate, pr.PreferredSupplierName, pr.EstimatedValue, pr.Currency,
-        pr.Lines.Select(l => new PrSnapshotLine(l.ItemDescription, l.Quantity, l.Uom, l.EstimatedUnitPrice)).ToList()));
+        pr.Lines.Select(l => new PrSnapshotLine(l.ItemDescription, l.Quantity, l.Uom, l.EstimatedUnitPrice)).ToList(), pr.CustomFieldsJson));
+
+    private static IReadOnlyDictionary<string, string> DeserializeCustomFields(string json) =>
+        JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
 
     private sealed record PrSnapshot(
         string Description, string Category, string RequisitionType, DateOnly RequiredByDate,
-        string? PreferredSupplierName, decimal EstimatedValue, string Currency, List<PrSnapshotLine> Lines);
+        string? PreferredSupplierName, decimal EstimatedValue, string Currency, List<PrSnapshotLine> Lines, string CustomFieldsJson);
     private sealed record PrSnapshotLine(string ItemDescription, decimal Quantity, string Uom, decimal EstimatedUnitPrice);
 }

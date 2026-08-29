@@ -19,13 +19,16 @@ published [here](https://claude.ai/code/artifact/9e8c8a8b-8036-4c47-a188-c7003dd
 
 ## Status
 
-**Phase 0 (Foundation), Phase 1 (Requisition → PO vertical slice), and a "harden"
-pass are built and verified against a real local PostgreSQL instance**: the generic
-workflow engine, maker-checker enforcement, PO amendment with full version history,
-a real `platform.organisations` tenant registry, automated org provisioning (no more
-manual migration scripts), and real JWT-based login replacing the earlier dev-header
-stand-ins. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §6 and §9 for what's
-been verified and how.
+**Phase 0 (Foundation), Phase 1 (Requisition → PO vertical slice), a "harden" pass,
+and a full root admin panel are built and verified against a real local PostgreSQL
+instance**: the generic workflow engine, maker-checker enforcement, PO amendment
+with full version history, a real `platform.organisations` tenant registry,
+automated org provisioning (no more manual migration scripts), real JWT-based login,
+a separate platform-admin identity tier for creating organisations from a UI, and
+per-org configurable approval workflows and custom fields (with dependency support)
+that the requisition/PO forms render dynamically. See
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §6 and §9 for what's been verified
+and how.
 
 Next: Phase 2 (Sourcing, Supplier, Contract), Phase 3 (Receiving, Invoice, Matching),
 or Phase 4's multi-step/escalation workflow support — see the Next steps checklist in

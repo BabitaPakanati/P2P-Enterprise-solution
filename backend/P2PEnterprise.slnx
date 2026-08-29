@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="P2P.Api/P2P.Api.csproj" />
+  <Project Path="P2P.Application/P2P.Application.csproj" />
+  <Project Path="P2P.Domain/P2P.Domain.csproj" />
+  <Project Path="P2P.Infrastructure/P2P.Infrastructure.csproj" />
+  <Project Path="P2P.Tests/P2P.Tests.csproj" />
+  <Project Path="P2P.Workers/P2P.Workers.csproj" />
+</Solution>

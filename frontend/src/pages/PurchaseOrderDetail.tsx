@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { Send, PackageCheck, PenSquare } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Send, PackageCheck, PenSquare, Truck } from "lucide-react";
 import { useSession } from "../context/SessionContext";
 import { getOrder, getOrderVersions, submitOrder, sendOrder, amendOrder } from "../api/procurement";
+import { listGoodsReceipts, getPurchaseOrderReceiptStatus } from "../api/receiving";
 import { ApiError } from "../api/client";
-import type { OrderDetail, DocumentVersion, CreateOrderLineInput } from "../api/types";
+import type { OrderDetail, DocumentVersion, CreateOrderLineInput, GoodsReceiptSummary, PurchaseOrderReceiptStatus } from "../api/types";
 import { StatusBadge } from "../components/StatusBadge";
 import { DynamicFields, type CustomFieldValues } from "../components/DynamicFields";
 
@@ -14,9 +15,12 @@ interface PoSnapshot { SupplierName: string; DeliveryDate: string | null; TotalV
 export function PurchaseOrderDetail() {
   const { id } = useParams<{ id: string }>();
   const { api, ready } = useSession();
+  const navigate = useNavigate();
   const [po, setPo] = useState<OrderDetail | null>(null);
   const [versions, setVersions] = useState<DocumentVersion[]>([]);
-  const [tab, setTab] = useState<"overview" | "history" | "amend">("overview");
+  const [receipts, setReceipts] = useState<GoodsReceiptSummary[]>([]);
+  const [receiptStatus, setReceiptStatus] = useState<PurchaseOrderReceiptStatus | null>(null);
+  const [tab, setTab] = useState<"overview" | "history" | "amend" | "receipts">("overview");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,6 +28,8 @@ export function PurchaseOrderDetail() {
     if (!id) return;
     getOrder(api, id).then(setPo).catch((e) => setError(e instanceof ApiError ? e.message : "Failed to load."));
     getOrderVersions(api, id).then(setVersions);
+    listGoodsReceipts(api, id).then(setReceipts);
+    getPurchaseOrderReceiptStatus(api, id).then(setReceiptStatus);
   };
 
   useEffect(() => {
@@ -50,12 +56,15 @@ export function PurchaseOrderDetail() {
     <>
       <div className="page-header">
         <div>
-          <h1 className="mono">{po.poNumber} <StatusBadge status={po.status} /></h1>
+          <h1 className="mono">{po.poNumber} <StatusBadge status={po.status} />{receiptStatus && <StatusBadge status={receiptStatus.receiptStatus} />}</h1>
           <p>{po.supplierName} · version {po.currentVersionNumber}</p>
         </div>
         <div className="actions">
           {po.status === "Draft" && <button className="primary" disabled={busy} onClick={() => act(() => submitOrder(api, po.id))}><Send size={14} strokeWidth={2.25} />Submit for Approval</button>}
           {po.status === "Approved" && <button className="primary" disabled={busy} onClick={() => act(() => sendOrder(api, po.id))}><PackageCheck size={14} strokeWidth={2.25} />Send to Supplier</button>}
+          {(po.status === "Approved" || po.status === "SentToSupplier") && receiptStatus?.receiptStatus !== "FullyReceived" && (
+            <button className="primary" onClick={() => navigate(`/goods-receipts/new?fromPurchaseOrder=${po.id}`)}><Truck size={14} strokeWidth={2.25} />Record Goods Receipt</button>
+          )}
           {(po.status === "Approved" || po.status === "SentToSupplier") && (
             <button disabled={busy} onClick={() => setTab("amend")}><PenSquare size={14} strokeWidth={2.25} />Amend</button>
           )}
@@ -67,6 +76,7 @@ export function PurchaseOrderDetail() {
       <div className="tabs">
         <button className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")}>Overview</button>
         <button className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>Version History ({versions.length})</button>
+        <button className={tab === "receipts" ? "active" : ""} onClick={() => setTab("receipts")}>Receipts ({receipts.length})</button>
         {(po.status === "Approved" || po.status === "SentToSupplier") && (
           <button className={tab === "amend" ? "active" : ""} onClick={() => setTab("amend")}>Amend</button>
         )}
@@ -134,6 +144,29 @@ export function PurchaseOrderDetail() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {tab === "receipts" && (
+        <div className="table-wrap">
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Receipt #</th><th>Delivery date</th><th>Status</th></tr></thead>
+              <tbody>
+                {receipts.length === 0 ? (
+                  <tr><td colSpan={3} className="table-empty">Nothing received against this PO yet.</td></tr>
+                ) : (
+                  receipts.map((g) => (
+                    <tr key={g.id}>
+                      <td><Link to={`/goods-receipts/${g.id}`} className="mono">{g.receiptNumber}</Link></td>
+                      <td className="num">{g.deliveryDate}</td>
+                      <td><StatusBadge status={g.status} /></td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

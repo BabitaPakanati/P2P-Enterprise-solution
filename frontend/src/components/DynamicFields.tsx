@@ -5,7 +5,7 @@ import { listFields, type FieldDefinitionDto } from "../api/settings";
 export type CustomFieldValues = Record<string, string>;
 
 interface DynamicFieldsProps {
-  entityType: "PurchaseRequisition" | "PurchaseOrder";
+  entityType: "PurchaseRequisition" | "PurchaseOrder" | "GoodsReceipt";
   values: CustomFieldValues;
   onChange: (values: CustomFieldValues) => void;
 }

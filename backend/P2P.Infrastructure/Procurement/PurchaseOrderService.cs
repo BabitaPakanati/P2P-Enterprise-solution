@@ -342,8 +342,11 @@ public sealed class PurchaseOrderService : IPurchaseOrderService, IWorkflowCompl
         po.SupplierName, po.DeliveryDate, po.TotalValue, po.Currency,
         po.Lines.Select(l => new PoSnapshotLine(l.ItemDescription, l.Quantity, l.Uom, l.UnitPrice)).ToList(), po.CustomFieldsJson));
 
+    // string.IsNullOrWhiteSpace guard: a row whose CustomFieldsJson predates this
+    // column's "{}" default (or was cleared some other way) has an empty string, not
+    // valid JSON - Deserialize throws on that instead of returning null.
     private static IReadOnlyDictionary<string, string> DeserializeCustomFields(string json) =>
-        JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
+        string.IsNullOrWhiteSpace(json) ? new Dictionary<string, string>() : JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
 
     private sealed record PoSnapshot(string SupplierName, DateOnly? DeliveryDate, decimal TotalValue, string Currency, List<PoSnapshotLine> Lines, string CustomFieldsJson);
     private sealed record PoSnapshotLine(string ItemDescription, decimal Quantity, string Uom, decimal UnitPrice);

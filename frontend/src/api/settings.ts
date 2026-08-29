@@ -68,7 +68,7 @@ export interface CreateWorkflowDefinitionInput {
 }
 
 export const RULE_OPERATORS = ["Equals", "NotEquals", "GreaterThan", "LessThan", "GreaterOrEqual", "LessOrEqual"] as const;
-export const KNOWN_ENTITY_TYPES = ["PurchaseRequisition", "PurchaseOrder"] as const;
+export const KNOWN_ENTITY_TYPES = ["PurchaseRequisition", "PurchaseOrder", "GoodsReceipt"] as const;
 export const FIELD_DATA_TYPES = ["Text", "Number", "Date", "Boolean", "Select"] as const;
 export type FieldDataType = (typeof FIELD_DATA_TYPES)[number];
 

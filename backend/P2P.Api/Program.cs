@@ -7,6 +7,7 @@ using P2P.Application.Abstractions;
 using P2P.Application.Admin;
 using P2P.Application.Auth;
 using P2P.Application.Procurement;
+using P2P.Application.Receiving;
 using P2P.Application.Workflow;
 using P2P.Domain.Organisation;
 using P2P.Domain.Platform;
@@ -17,6 +18,7 @@ using P2P.Infrastructure.Auth;
 using P2P.Infrastructure.MultiTenancy;
 using P2P.Infrastructure.Persistence;
 using P2P.Infrastructure.Procurement;
+using P2P.Infrastructure.Receiving;
 using P2P.Infrastructure.Workflow;
 using System.Text;
 
@@ -102,6 +104,8 @@ builder.Services.AddScoped<IWorkflowCompletionHandler>(sp => sp.GetRequiredServi
 builder.Services.AddScoped<PurchaseOrderService>();
 builder.Services.AddScoped<IPurchaseOrderService>(sp => sp.GetRequiredService<PurchaseOrderService>());
 builder.Services.AddScoped<IWorkflowCompletionHandler>(sp => sp.GetRequiredService<PurchaseOrderService>());
+
+builder.Services.AddScoped<IGoodsReceiptService, GoodsReceiptService>();
 
 // --- Org-level admin (roles, workflow configuration) ------------------------------------
 builder.Services.AddScoped<IRoleService, RoleService>();
@@ -312,6 +316,54 @@ purchaseOrders.MapGet("/{id:guid}", async (IPurchaseOrderService svc, Guid id) =
 });
 
 purchaseOrders.MapGet("/{id:guid}/versions", async (IPurchaseOrderService svc, Guid id) =>
+    Results.Ok(await svc.GetVersionHistoryAsync(id)));
+
+purchaseOrders.MapGet("/{id:guid}/receipt-status", async (IGoodsReceiptService svc, Guid id) =>
+    Results.Ok(await svc.GetReceiptStatusAsync(id)));
+
+// --- Goods Receipts --------------------------------------------------------------------------
+
+var goodsReceipts = app.MapGroup("/api/v1/goods-receipts").RequireAuthorization();
+
+goodsReceipts.MapPost("/", async (IGoodsReceiptService svc, ICurrentUserContext user, CreateGoodsReceiptRequest body) =>
+{
+    var id = await svc.CreateAsync(user.UserId, body);
+    return Results.Created($"/api/v1/goods-receipts/{id}", new { id });
+});
+
+goodsReceipts.MapPut("/{id:guid}", async (IGoodsReceiptService svc, Guid id, UpdateGoodsReceiptRequest body) =>
+{
+    await svc.UpdateAsync(id, body);
+    return Results.NoContent();
+});
+
+goodsReceipts.MapPost("/{id:guid}/post", async (IGoodsReceiptService svc, Guid id) =>
+{
+    await svc.PostAsync(id);
+    return Results.NoContent();
+});
+
+goodsReceipts.MapPost("/{id:guid}/cancel", async (IGoodsReceiptService svc, Guid id) =>
+{
+    await svc.CancelAsync(id);
+    return Results.NoContent();
+});
+
+goodsReceipts.MapPost("/{id:guid}/amend", async (IGoodsReceiptService svc, ICurrentUserContext user, Guid id, AmendGoodsReceiptRequest body) =>
+{
+    await svc.AmendAsync(id, user.UserId, body);
+    return Results.NoContent();
+});
+
+goodsReceipts.MapGet("/", async (IGoodsReceiptService svc, Guid? purchaseOrderId) => Results.Ok(await svc.ListAsync(purchaseOrderId)));
+
+goodsReceipts.MapGet("/{id:guid}", async (IGoodsReceiptService svc, Guid id) =>
+{
+    var dto = await svc.GetAsync(id);
+    return dto is null ? Results.NotFound() : Results.Ok(dto);
+});
+
+goodsReceipts.MapGet("/{id:guid}/versions", async (IGoodsReceiptService svc, Guid id) =>
     Results.Ok(await svc.GetVersionHistoryAsync(id)));
 
 // --- Approvals -------------------------------------------------------------------------------

@@ -132,6 +132,84 @@ export interface ApprovalTask {
   createdAtUtc: string;
 }
 
+export interface ReceivableLine {
+  purchaseOrderLineId: string;
+  itemDescription: string;
+  uom: string;
+  quantityOrdered: number;
+  quantityAlreadyReceived: number;
+  quantityRemaining: number;
+}
+
+export interface PurchaseOrderReceiptStatus {
+  receiptStatus: string;
+  lines: ReceivableLine[];
+}
+
+export interface GoodsReceiptLine {
+  id: string;
+  purchaseOrderLineId: string;
+  itemDescription: string;
+  uom: string;
+  quantityOrdered: number;
+  quantityReceived: number;
+  quantityAccepted: number;
+  quantityRejected: number;
+  inspectionStatus: string;
+}
+
+export interface GoodsReceiptSummary {
+  id: string;
+  receiptNumber: string;
+  purchaseOrderId: string;
+  poNumber: string;
+  supplierName: string;
+  deliveryDate: string;
+  status: string;
+}
+
+export interface GoodsReceiptDetail extends GoodsReceiptSummary {
+  documentId: string;
+  deliveryNoteNumber: string | null;
+  location: string | null;
+  currentVersionNumber: number;
+  lines: GoodsReceiptLine[];
+  customFields: Record<string, string>;
+}
+
+export interface CreateGoodsReceiptLineInput {
+  purchaseOrderLineId: string;
+  quantityReceived: number;
+  quantityRejected: number;
+}
+
+export interface CreateGoodsReceiptInput {
+  purchaseOrderId: string;
+  deliveryDate: string;
+  deliveryNoteNumber?: string;
+  location?: string;
+  lines: CreateGoodsReceiptLineInput[];
+  customFields?: Record<string, string>;
+}
+
+/** Same shape as create minus purchaseOrderId (fixed once created) - editing a Draft replaces the whole thing. */
+export interface UpdateGoodsReceiptInput {
+  deliveryDate: string;
+  deliveryNoteNumber?: string;
+  location?: string;
+  lines: CreateGoodsReceiptLineInput[];
+  customFields?: Record<string, string>;
+}
+
+export interface AmendGoodsReceiptInput {
+  deliveryDate: string;
+  deliveryNoteNumber?: string;
+  location?: string;
+  changeReason: string;
+  lines: CreateGoodsReceiptLineInput[];
+  customFields?: Record<string, string>;
+}
+
 export interface SeedResult {
   requesterId: string;
   approverId: string;

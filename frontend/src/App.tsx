@@ -11,6 +11,9 @@ import { Approvals } from "./pages/Approvals";
 import { PurchaseOrdersList } from "./pages/PurchaseOrdersList";
 import { PurchaseOrderCreate } from "./pages/PurchaseOrderCreate";
 import { PurchaseOrderDetail } from "./pages/PurchaseOrderDetail";
+import { GoodsReceiptsList } from "./pages/GoodsReceiptsList";
+import { GoodsReceiptCreate } from "./pages/GoodsReceiptCreate";
+import { GoodsReceiptDetail } from "./pages/GoodsReceiptDetail";
 import { Roles } from "./pages/settings/Roles";
 import { Workflows } from "./pages/settings/Workflows";
 import { Fields } from "./pages/settings/Fields";
@@ -51,6 +54,9 @@ export default function App() {
         <Route path="/purchase-orders" element={<PurchaseOrdersList />} />
         <Route path="/purchase-orders/new" element={<PurchaseOrderCreate />} />
         <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />
+        <Route path="/goods-receipts" element={<GoodsReceiptsList />} />
+        <Route path="/goods-receipts/new" element={<GoodsReceiptCreate />} />
+        <Route path="/goods-receipts/:id" element={<GoodsReceiptDetail />} />
         <Route path="/settings/roles" element={<Roles />} />
         <Route path="/settings/workflows" element={<Workflows />} />
         <Route path="/settings/fields" element={<Fields />} />

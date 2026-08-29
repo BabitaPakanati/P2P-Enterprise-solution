@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { LayoutDashboard, FileText, CheckSquare, ShoppingCart, Layers, LogOut, Shield, GitBranch, SlidersHorizontal } from "lucide-react";
+import { LayoutDashboard, FileText, CheckSquare, ShoppingCart, PackageCheck, Layers, LogOut, Shield, GitBranch, SlidersHorizontal } from "lucide-react";
 import { useSession } from "../context/SessionContext";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -8,6 +8,7 @@ const NAV = [
   { to: "/requisitions", label: "Requisitions", icon: FileText, end: false },
   { to: "/approvals", label: "Approvals", icon: CheckSquare, end: false },
   { to: "/purchase-orders", label: "Purchase Orders", icon: ShoppingCart, end: false },
+  { to: "/goods-receipts", label: "Goods Receipts", icon: PackageCheck, end: false },
 ];
 
 const SETTINGS_NAV = [

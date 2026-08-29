@@ -4,6 +4,7 @@ using P2P.Domain.Configuration;
 using P2P.Domain.Identity;
 using P2P.Domain.Organisation;
 using P2P.Domain.Procurement;
+using P2P.Domain.Receiving;
 using P2P.Domain.Versioning;
 using P2P.Domain.Workflow;
 
@@ -68,6 +69,9 @@ public sealed class AppDbContext : DbContext
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
     public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();
 
+    public DbSet<GoodsReceipt> GoodsReceipts => Set<GoodsReceipt>();
+    public DbSet<GoodsReceiptLine> GoodsReceiptLines => Set<GoodsReceiptLine>();
+
     // Configuration
     public DbSet<FieldDefinition> FieldDefinitions => Set<FieldDefinition>();
 
@@ -124,6 +128,13 @@ public sealed class AppDbContext : DbContext
             b.ToTable("procurement_purchase_order_line");
             b.Ignore(l => l.LineValue); // computed (Quantity * UnitPrice), not stored
         });
+
+        modelBuilder.Entity<GoodsReceipt>(b =>
+        {
+            b.ToTable("receiving_goods_receipt");
+            b.HasMany(g => g.Lines).WithOne().HasForeignKey(l => l.GoodsReceiptId);
+        });
+        modelBuilder.Entity<GoodsReceiptLine>(b => b.ToTable("receiving_goods_receipt_line"));
 
         modelBuilder.Entity<FieldDefinition>(b =>
         {

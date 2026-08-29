@@ -435,8 +435,9 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
         pr.Description, pr.Category, pr.RequisitionType, pr.RequiredByDate, pr.PreferredSupplierName, pr.EstimatedValue, pr.Currency,
         pr.Lines.Select(l => new PrSnapshotLine(l.ItemDescription, l.Quantity, l.Uom, l.EstimatedUnitPrice)).ToList(), pr.CustomFieldsJson));
 
+    // See PurchaseOrderService.DeserializeCustomFields's comment on the empty-string guard.
     private static IReadOnlyDictionary<string, string> DeserializeCustomFields(string json) =>
-        JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
+        string.IsNullOrWhiteSpace(json) ? new Dictionary<string, string>() : JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
 
     private sealed record PrSnapshot(
         string Description, string Category, string RequisitionType, DateOnly RequiredByDate,

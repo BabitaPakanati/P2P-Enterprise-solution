@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Plus, ListFilter } from "lucide-react";
 import { useSession } from "../context/SessionContext";
 import { listRequisitions } from "../api/procurement";
 import type { RequisitionSummary } from "../api/types";
@@ -29,38 +30,40 @@ export function RequisitionsList() {
           <p>Demand → requisition. Create, submit for approval, track status.</p>
         </div>
         <div className="actions">
-          <button onClick={() => setMineOnly((v) => !v)}>{mineOnly ? "Show all" : "Show mine only"}</button>
-          <Link to="/requisitions/new"><button className="primary">+ Create Requisition</button></Link>
+          <button onClick={() => setMineOnly((v) => !v)}><ListFilter size={14} strokeWidth={2} />{mineOnly ? "Show all" : "Show mine only"}</button>
+          <Link to="/requisitions/new"><button className="primary"><Plus size={15} strokeWidth={2.25} />Create Requisition</button></Link>
         </div>
       </div>
 
       <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Requisition #</th><th>Description</th><th>Category</th><th>Required by</th>
-              <th className="num">Est. Value</th><th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={6} className="table-empty">Loading…</td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td colSpan={6} className="table-empty">No requisitions found.</td></tr>
-            ) : (
-              rows.map((r) => (
-                <tr key={r.id}>
-                  <td><Link to={`/requisitions/${r.id}`}>{r.requisitionNumber}</Link></td>
-                  <td>{r.description}</td>
-                  <td>{r.category}</td>
-                  <td>{r.requiredByDate}</td>
-                  <td className="num">{r.currency} {r.estimatedValue.toLocaleString()}</td>
-                  <td><StatusBadge status={r.status} /></td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Requisition #</th><th>Description</th><th>Category</th><th>Required by</th>
+                <th className="num">Est. Value</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={6} className="table-empty">Loading…</td></tr>
+              ) : rows.length === 0 ? (
+                <tr><td colSpan={6} className="table-empty">No requisitions found.</td></tr>
+              ) : (
+                rows.map((r) => (
+                  <tr key={r.id}>
+                    <td><Link to={`/requisitions/${r.id}`} className="mono">{r.requisitionNumber}</Link></td>
+                    <td>{r.description}</td>
+                    <td>{r.category}</td>
+                    <td className="num">{r.requiredByDate}</td>
+                    <td className="num">{r.currency} {r.estimatedValue.toLocaleString()}</td>
+                    <td><StatusBadge status={r.status} /></td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   );

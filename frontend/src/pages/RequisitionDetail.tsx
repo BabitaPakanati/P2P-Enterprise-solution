@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, Send, XCircle, ShoppingCart } from "lucide-react";
 import { useSession } from "../context/SessionContext";
 import { getRequisition, submitRequisition, cancelRequisition } from "../api/procurement";
 import { ApiError } from "../api/client";
@@ -43,18 +44,18 @@ export function RequisitionDetail() {
     <>
       <div className="page-header">
         <div>
-          <h1>{pr.requisitionNumber} <StatusBadge status={pr.status} /></h1>
+          <h1 className="mono">{pr.requisitionNumber} <StatusBadge status={pr.status} /></h1>
           <p>{pr.description}</p>
         </div>
         <div className="actions">
           {pr.status === "Draft" && (
-            <button className="primary" disabled={busy} onClick={() => act(() => submitRequisition(api, pr.id))}>Submit for Approval</button>
+            <button className="primary" disabled={busy} onClick={() => act(() => submitRequisition(api, pr.id))}><Send size={14} strokeWidth={2.25} />Submit for Approval</button>
           )}
           {(pr.status === "Draft" || pr.status === "PendingApproval") && (
-            <button className="danger" disabled={busy} onClick={() => act(() => cancelRequisition(api, pr.id))}>Cancel</button>
+            <button className="danger" disabled={busy} onClick={() => act(() => cancelRequisition(api, pr.id))}><XCircle size={14} strokeWidth={2.25} />Cancel</button>
           )}
           {pr.status === "Approved" && (
-            <button className="primary" onClick={() => navigate(`/purchase-orders/new?fromRequisition=${pr.id}`)}>Create Purchase Order</button>
+            <button className="primary" onClick={() => navigate(`/purchase-orders/new?fromRequisition=${pr.id}`)}><ShoppingCart size={14} strokeWidth={2.25} />Create Purchase Order</button>
           )}
         </div>
       </div>
@@ -63,37 +64,43 @@ export function RequisitionDetail() {
 
       <div className="detail-grid">
         <div className="table-wrap">
-          <table>
-            <thead><tr><th>Item</th><th className="num">Qty</th><th>UOM</th><th className="num">Unit price</th><th className="num">Value</th></tr></thead>
-            <tbody>
-              {pr.lines.map((l) => (
-                <tr key={l.id}>
-                  <td>{l.itemDescription}</td>
-                  <td className="num">{l.quantity}</td>
-                  <td>{l.uom}</td>
-                  <td className="num">{l.estimatedUnitPrice.toLocaleString()}</td>
-                  <td className="num">{l.estimatedValue.toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Item</th><th className="num">Qty</th><th>UOM</th><th className="num">Unit price</th><th className="num">Value</th></tr></thead>
+              <tbody>
+                {pr.lines.map((l) => (
+                  <tr key={l.id}>
+                    <td>{l.itemDescription}</td>
+                    <td className="num">{l.quantity}</td>
+                    <td>{l.uom}</td>
+                    <td className="num">{l.estimatedUnitPrice.toLocaleString()}</td>
+                    <td className="num">{l.estimatedValue.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="card">
-          <h3 style={{ marginBottom: "0.9rem" }}>Summary</h3>
+          <h3>Summary</h3>
           <div className="summary-list">
             <div className="row"><span className="k">Category</span><span>{pr.category}</span></div>
             <div className="row"><span className="k">Type</span><span>{pr.requisitionType}</span></div>
-            <div className="row"><span className="k">Request date</span><span>{pr.requestDate}</span></div>
-            <div className="row"><span className="k">Required by</span><span>{pr.requiredByDate}</span></div>
+            <div className="row"><span className="k">Request date</span><span className="num">{pr.requestDate}</span></div>
+            <div className="row"><span className="k">Required by</span><span className="num">{pr.requiredByDate}</span></div>
             <div className="row"><span className="k">Preferred supplier</span><span>{pr.preferredSupplierName ?? "—"}</span></div>
-            <div className="row"><span className="k">Version</span><span>v{pr.currentVersionNumber}</span></div>
-            <div className="row"><span className="k">Estimated value</span><b>{pr.currency} {pr.estimatedValue.toLocaleString()}</b></div>
+            <div className="row"><span className="k">Version</span><span className="mono">v{pr.currentVersionNumber}</span></div>
+            <div className="row"><span className="k">Estimated value</span><span className="v-strong">{pr.currency} {pr.estimatedValue.toLocaleString()}</span></div>
           </div>
         </div>
       </div>
 
-      <p className="hint" style={{ marginTop: "1rem" }}><Link to="/requisitions">&larr; Back to requisitions</Link></p>
+      <p className="hint" style={{ marginTop: "1.2rem" }}>
+        <Link to="/requisitions" style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+          <ArrowLeft size={13} strokeWidth={2.25} /> Back to requisitions
+        </Link>
+      </p>
     </>
   );
 }

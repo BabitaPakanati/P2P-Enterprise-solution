@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { FileText, Clock, ShoppingCart, Wallet, CheckSquare, ArrowRight } from "lucide-react";
 import { useSession } from "../context/SessionContext";
 import { listRequisitions, listOrders, myApprovals } from "../api/procurement";
 import type { RequisitionSummary, OrderSummary, ApprovalTask } from "../api/types";
+import { StatusBadge } from "../components/StatusBadge";
 
 export function Dashboard() {
   const { api, ready } = useSession();
@@ -28,6 +30,14 @@ export function Dashboard() {
     .filter((o) => o.status !== "Cancelled" && o.status !== "Closed")
     .reduce((sum, o) => sum + o.totalValue, 0);
 
+  const kpis = [
+    { label: "Requisitions", value: requisitions.length, icon: FileText },
+    { label: "Pending Approval", value: pendingRequisitions, icon: Clock },
+    { label: "Purchase Orders", value: orders.length, icon: ShoppingCart },
+    { label: "Open PO Value", value: `$${openOrderValue.toLocaleString()}`, icon: Wallet },
+    { label: "My Approvals", value: approvals.length, icon: CheckSquare },
+  ];
+
   return (
     <>
       <div className="page-header">
@@ -42,45 +52,54 @@ export function Dashboard() {
       ) : (
         <>
           <div className="kpi-row">
-            <div className="kpi-card"><div className="label">Requisitions</div><div className="value">{requisitions.length}</div></div>
-            <div className="kpi-card"><div className="label">Pending Approval</div><div className="value">{pendingRequisitions}</div></div>
-            <div className="kpi-card"><div className="label">Purchase Orders</div><div className="value">{orders.length}</div></div>
-            <div className="kpi-card"><div className="label">Open PO Value</div><div className="value">${openOrderValue.toLocaleString()}</div></div>
-            <div className="kpi-card"><div className="label">My Approvals</div><div className="value">{approvals.length}</div></div>
+            {kpis.map(({ label, value, icon: Icon }) => (
+              <div className="kpi-card" key={label}>
+                <div className="kpi-top">
+                  <span className="label">{label}</span>
+                  <span className="icon-chip"><Icon size={15} strokeWidth={2} /></span>
+                </div>
+                <div className="value">{value}</div>
+              </div>
+            ))}
           </div>
 
           <div className="detail-grid">
             <div className="table-wrap">
-              <table>
-                <thead><tr><th>Requisition</th><th>Description</th><th>Status</th><th className="num">Value</th></tr></thead>
-                <tbody>
-                  {requisitions.slice(0, 6).map((r) => (
-                    <tr key={r.id}>
-                      <td><Link to={`/requisitions/${r.id}`}>{r.requisitionNumber}</Link></td>
-                      <td>{r.description}</td>
-                      <td>{r.status}</td>
-                      <td className="num">{r.currency} {r.estimatedValue.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                  {requisitions.length === 0 && (
-                    <tr><td colSpan={4} className="table-empty">No requisitions yet. <Link to="/requisitions/new">Create one</Link>.</td></tr>
-                  )}
-                </tbody>
-              </table>
+              <div className="table-scroll">
+                <table>
+                  <thead><tr><th>Requisition</th><th>Description</th><th>Status</th><th className="num">Value</th></tr></thead>
+                  <tbody>
+                    {requisitions.slice(0, 6).map((r) => (
+                      <tr key={r.id}>
+                        <td><Link to={`/requisitions/${r.id}`} className="mono">{r.requisitionNumber}</Link></td>
+                        <td>{r.description}</td>
+                        <td><StatusBadge status={r.status} /></td>
+                        <td className="num">{r.currency} {r.estimatedValue.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                    {requisitions.length === 0 && (
+                      <tr><td colSpan={4} className="table-empty">No requisitions yet. <Link to="/requisitions/new">Create one</Link>.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <div className="table-wrap">
-              <table>
-                <thead><tr><th>My approvals</th></tr></thead>
-                <tbody>
-                  {approvals.slice(0, 6).map((a) => (
-                    <tr key={a.taskId}>
-                      <td>{a.transactionNumber} · {a.currency} {a.amount.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                  {approvals.length === 0 && <tr><td className="table-empty">Nothing pending.</td></tr>}
-                </tbody>
-              </table>
+              <div className="table-scroll">
+                <table>
+                  <thead><tr><th>My approvals</th><th></th></tr></thead>
+                  <tbody>
+                    {approvals.slice(0, 6).map((a) => (
+                      <tr key={a.taskId}>
+                        <td>{a.transactionNumber} · {a.currency} {a.amount.toLocaleString()}</td>
+                        <td><Link to="/approvals"><ArrowRight size={14} /></Link></td>
+                      </tr>
+                    ))}
+                    {approvals.length === 0 && <tr><td colSpan={2} className="table-empty">Nothing pending.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </>

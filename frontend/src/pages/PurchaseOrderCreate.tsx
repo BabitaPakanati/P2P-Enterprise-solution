@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { ShoppingCart } from "lucide-react";
 import { useSession } from "../context/SessionContext";
 import { getRequisition, createOrder } from "../api/procurement";
 import { ApiError } from "../api/client";
@@ -93,12 +94,12 @@ export function PurchaseOrderCreate() {
           </tbody>
         </table>
 
-        <div className="summary-list" style={{ marginTop: "1rem" }}>
-          <div className="row"><span className="k">PO total</span><b>{pr.currency} {total.toLocaleString()}</b></div>
+        <div className="summary-list" style={{ marginTop: "1.1rem" }}>
+          <div className="row"><span className="k">PO total</span><span className="v-strong">{pr.currency} {total.toLocaleString()}</span></div>
         </div>
 
         <div className="form-actions">
-          <button type="submit" className="primary" disabled={saving}>{saving ? "Creating…" : "Create Purchase Order"}</button>
+          <button type="submit" className="primary" disabled={saving}><ShoppingCart size={14} strokeWidth={2.25} />{saving ? "Creating…" : "Create Purchase Order"}</button>
         </div>
       </form>
     </>

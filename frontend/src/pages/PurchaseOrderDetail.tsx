@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { Send, PackageCheck, PenSquare } from "lucide-react";
 import { useSession } from "../context/SessionContext";
 import { getOrder, getOrderVersions, submitOrder, sendOrder, amendOrder } from "../api/procurement";
 import { ApiError } from "../api/client";
 import type { OrderDetail, DocumentVersion, CreateOrderLineInput } from "../api/types";
 import { StatusBadge } from "../components/StatusBadge";
+
+interface PoSnapshotLine { ItemDescription: string; Quantity: number; Uom: string; UnitPrice: number }
+interface PoSnapshot { SupplierName: string; DeliveryDate: string | null; TotalValue: number; Currency: string; Lines: PoSnapshotLine[] }
 
 export function PurchaseOrderDetail() {
   const { id } = useParams<{ id: string }>();
@@ -45,14 +49,14 @@ export function PurchaseOrderDetail() {
     <>
       <div className="page-header">
         <div>
-          <h1>{po.poNumber} <StatusBadge status={po.status} /></h1>
-          <p>{po.supplierName} · v{po.currentVersionNumber}</p>
+          <h1 className="mono">{po.poNumber} <StatusBadge status={po.status} /></h1>
+          <p>{po.supplierName} · version {po.currentVersionNumber}</p>
         </div>
         <div className="actions">
-          {po.status === "Draft" && <button className="primary" disabled={busy} onClick={() => act(() => submitOrder(api, po.id))}>Submit for Approval</button>}
-          {po.status === "Approved" && <button className="primary" disabled={busy} onClick={() => act(() => sendOrder(api, po.id))}>Send to Supplier</button>}
+          {po.status === "Draft" && <button className="primary" disabled={busy} onClick={() => act(() => submitOrder(api, po.id))}><Send size={14} strokeWidth={2.25} />Submit for Approval</button>}
+          {po.status === "Approved" && <button className="primary" disabled={busy} onClick={() => act(() => sendOrder(api, po.id))}><PackageCheck size={14} strokeWidth={2.25} />Send to Supplier</button>}
           {(po.status === "Approved" || po.status === "SentToSupplier") && (
-            <button disabled={busy} onClick={() => setTab("amend")}>Amend</button>
+            <button disabled={busy} onClick={() => setTab("amend")}><PenSquare size={14} strokeWidth={2.25} />Amend</button>
           )}
         </div>
       </div>
@@ -70,46 +74,65 @@ export function PurchaseOrderDetail() {
       {tab === "overview" && (
         <div className="detail-grid">
           <div className="table-wrap">
-            <table>
-              <thead><tr><th>Item</th><th className="num">Qty</th><th>UOM</th><th className="num">Unit price</th><th className="num">Value</th></tr></thead>
-              <tbody>
-                {po.lines.map((l) => (
-                  <tr key={l.id}>
-                    <td>{l.itemDescription}</td><td className="num">{l.quantity}</td><td>{l.uom}</td>
-                    <td className="num">{l.unitPrice.toLocaleString()}</td><td className="num">{l.lineValue.toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="table-scroll">
+              <table>
+                <thead><tr><th>Item</th><th className="num">Qty</th><th>UOM</th><th className="num">Unit price</th><th className="num">Value</th></tr></thead>
+                <tbody>
+                  {po.lines.map((l) => (
+                    <tr key={l.id}>
+                      <td>{l.itemDescription}</td><td className="num">{l.quantity}</td><td>{l.uom}</td>
+                      <td className="num">{l.unitPrice.toLocaleString()}</td><td className="num">{l.lineValue.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
           <div className="card">
-            <h3 style={{ marginBottom: "0.9rem" }}>Summary</h3>
+            <h3>Summary</h3>
             <div className="summary-list">
               <div className="row"><span className="k">Supplier</span><span>{po.supplierName}</span></div>
-              <div className="row"><span className="k">PO date</span><span>{po.poDate}</span></div>
-              <div className="row"><span className="k">Delivery date</span><span>{po.deliveryDate ?? "—"}</span></div>
+              <div className="row"><span className="k">PO date</span><span className="num">{po.poDate}</span></div>
+              <div className="row"><span className="k">Delivery date</span><span className="num">{po.deliveryDate ?? "—"}</span></div>
               <div className="row"><span className="k">Source requisition</span><Link to={`/requisitions/${po.sourceRequisitionId}`}>View</Link></div>
-              <div className="row"><span className="k">Total value</span><b>{po.currency} {po.totalValue.toLocaleString()}</b></div>
+              <div className="row"><span className="k">Total value</span><span className="v-strong">{po.currency} {po.totalValue.toLocaleString()}</span></div>
             </div>
           </div>
         </div>
       )}
 
       {tab === "history" && (
-        <div>
-          {versions.map((v) => (
-            <div className="version-card" key={v.id}>
-              <div className="vhead">
-                <b>v{v.versionNumber}</b>
-                <StatusBadge status={v.versionStatus} />
+        <div className="version-list">
+          {versions.map((v) => {
+            const snap = JSON.parse(v.payloadJson) as PoSnapshot;
+            return (
+              <div className={`version-card${v.versionStatus === "Active" ? " is-active" : ""}`} key={v.id}>
+                <div className="vbody">
+                  <div className="vhead">
+                    <span className="vnum">Version {v.versionNumber}</span>
+                    <StatusBadge status={v.versionStatus} />
+                  </div>
+                  <div className="version-kv">
+                    <div><div className="k">Effective from</div><div className="v">{new Date(v.effectiveFrom).toLocaleString()}</div></div>
+                    <div><div className="k">Effective to</div><div className="v">{v.effectiveTo ? new Date(v.effectiveTo).toLocaleString() : "current"}</div></div>
+                    <div><div className="k">Supplier</div><div className="v">{snap.SupplierName}</div></div>
+                    <div><div className="k">Total value</div><div className="v num">{snap.Currency} {snap.TotalValue.toLocaleString()}</div></div>
+                    {v.changeReason && <div style={{ gridColumn: "1 / -1" }}><div className="k">Change reason</div><div className="v">{v.changeReason}</div></div>}
+                  </div>
+                  <div className="version-lines">
+                    <table>
+                      <thead><tr><th>Item</th><th className="num">Qty</th><th>UOM</th><th className="num">Unit price</th></tr></thead>
+                      <tbody>
+                        {snap.Lines.map((l, i) => (
+                          <tr key={i}><td>{l.ItemDescription}</td><td className="num">{l.Quantity}</td><td>{l.Uom}</td><td className="num">{l.UnitPrice.toLocaleString()}</td></tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-              <div className="summary-list" style={{ marginBottom: "0.5rem" }}>
-                <div className="row"><span className="k">Effective</span><span>{new Date(v.effectiveFrom).toLocaleString()}{v.effectiveTo ? ` → ${new Date(v.effectiveTo).toLocaleString()}` : " → current"}</span></div>
-                {v.changeReason && <div className="row"><span className="k">Change reason</span><span>{v.changeReason}</span></div>}
-              </div>
-              <pre>{JSON.stringify(JSON.parse(v.payloadJson), null, 2)}</pre>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -149,8 +172,8 @@ function AmendForm({ po, onDone }: { po: OrderDetail; onDone: () => void }) {
 
   return (
     <form className="card" onSubmit={submit}>
-      <p className="hint" style={{ marginBottom: "0.8rem" }}>
-        This creates a new pending version — v{po.currentVersionNumber} stays the effective one until this is approved.
+      <p className="hint" style={{ marginBottom: "1rem" }}>
+        This creates a new pending version — version {po.currentVersionNumber} stays the effective one until this is approved.
       </p>
       {error && <div className="error-banner">{error}</div>}
 
@@ -158,7 +181,7 @@ function AmendForm({ po, onDone }: { po: OrderDetail; onDone: () => void }) {
         <div className="field"><label>Supplier</label><input value={supplierName} onChange={(e) => setSupplierName(e.target.value)} /></div>
         <div className="field"><label>Delivery date</label><input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} /></div>
       </div>
-      <div className="field" style={{ marginBottom: "0.9rem" }}>
+      <div className="field" style={{ marginBottom: "1rem" }}>
         <label>Change reason</label>
         <input value={changeReason} onChange={(e) => setChangeReason(e.target.value)} placeholder="e.g. Supplier price increase" required />
       </div>
@@ -178,10 +201,10 @@ function AmendForm({ po, onDone }: { po: OrderDetail; onDone: () => void }) {
           ))}
         </tbody>
       </table>
-      <button type="button" className="small" onClick={() => setLines((prev) => [...prev, { itemDescription: "", quantity: 1, uom: "EA", unitPrice: 0 }])}>+ Add line</button>
+      <button type="button" className="small" style={{ marginTop: "0.6rem" }} onClick={() => setLines((prev) => [...prev, { itemDescription: "", quantity: 1, uom: "EA", unitPrice: 0 }])}>+ Add line</button>
 
-      <div className="summary-list" style={{ marginTop: "1rem" }}>
-        <div className="row"><span className="k">Proposed total</span><b>{po.currency} {total.toLocaleString()}</b></div>
+      <div className="summary-list" style={{ marginTop: "1.1rem" }}>
+        <div className="row"><span className="k">Proposed total</span><span className="v-strong">{po.currency} {total.toLocaleString()}</span></div>
       </div>
 
       <div className="form-actions">

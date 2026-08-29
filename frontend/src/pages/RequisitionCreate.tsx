@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, Plus, Trash2 } from "lucide-react";
 import { useSession } from "../context/SessionContext";
 import { createRequisition } from "../api/procurement";
 import { ApiError } from "../api/client";
@@ -102,21 +103,21 @@ export function RequisitionCreate() {
                 <td className="num">{(l.quantity * l.estimatedUnitPrice).toLocaleString()}</td>
                 <td>
                   {lines.length > 1 && (
-                    <button type="button" className="small danger" onClick={() => setLines((prev) => prev.filter((_, idx) => idx !== i))}>Remove</button>
+                    <button type="button" className="small danger" onClick={() => setLines((prev) => prev.filter((_, idx) => idx !== i))}><Trash2 size={12} strokeWidth={2.25} />Remove</button>
                   )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        <button type="button" className="small" onClick={() => setLines((prev) => [...prev, emptyLine()])}>+ Add line</button>
+        <button type="button" className="small" style={{ marginTop: "0.6rem" }} onClick={() => setLines((prev) => [...prev, emptyLine()])}><Plus size={13} strokeWidth={2.25} />Add line</button>
 
-        <div className="summary-list" style={{ marginTop: "1rem" }}>
-          <div className="row"><span className="k">Estimated total</span><b>USD {total.toLocaleString()}</b></div>
+        <div className="summary-list" style={{ marginTop: "1.1rem" }}>
+          <div className="row"><span className="k">Estimated total</span><span className="v-strong">USD {total.toLocaleString()}</span></div>
         </div>
 
         <div className="form-actions">
-          <button type="submit" className="primary" disabled={saving}>{saving ? "Saving…" : "Save Draft"}</button>
+          <button type="submit" className="primary" disabled={saving}><Save size={14} strokeWidth={2.25} />{saving ? "Saving…" : "Save Draft"}</button>
         </div>
       </form>
     </>

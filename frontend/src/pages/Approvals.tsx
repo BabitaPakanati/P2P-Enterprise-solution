@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Check, X } from "lucide-react";
 import { useSession } from "../context/SessionContext";
 import { myApprovals, decideApproval } from "../api/procurement";
 import { ApiError } from "../api/client";
@@ -47,39 +48,41 @@ export function Approvals() {
       {error && <div className="error-banner">{error}</div>}
 
       <div className="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Transaction</th><th>Type</th><th>Requester</th><th className="num">Amount</th><th>Comments</th><th style={{ width: 190 }}>Decision</th></tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={6} className="table-empty">Loading…</td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td colSpan={6} className="table-empty">Nothing waiting on you.</td></tr>
-            ) : (
-              rows.map((t) => (
-                <tr key={t.taskId}>
-                  <td>{t.transactionNumber}</td>
-                  <td>{t.entityType === "PurchaseRequisition" ? "Requisition" : "Purchase Order"}</td>
-                  <td>{t.requester}</td>
-                  <td className="num">{t.currency} {t.amount.toLocaleString()}</td>
-                  <td>
-                    <input
-                      style={{ width: 180 }}
-                      placeholder="Optional comment"
-                      value={comments[t.taskId] ?? ""}
-                      onChange={(e) => setComments((c) => ({ ...c, [t.taskId]: e.target.value }))}
-                    />
-                  </td>
-                  <td className="actions-cell">
-                    <button className="small primary" disabled={busyTask === t.taskId} onClick={() => decide(t.taskId, true)}>Approve</button>
-                    <button className="small danger" disabled={busyTask === t.taskId} onClick={() => decide(t.taskId, false)}>Reject</button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr><th>Transaction</th><th>Type</th><th>Requester</th><th className="num">Amount</th><th>Comments</th><th style={{ width: 190 }}>Decision</th></tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={6} className="table-empty">Loading…</td></tr>
+              ) : rows.length === 0 ? (
+                <tr><td colSpan={6} className="table-empty">Nothing waiting on you.</td></tr>
+              ) : (
+                rows.map((t) => (
+                  <tr key={t.taskId}>
+                    <td className="mono">{t.transactionNumber}</td>
+                    <td>{t.entityType === "PurchaseRequisition" ? "Requisition" : "Purchase Order"}</td>
+                    <td>{t.requester}</td>
+                    <td className="num">{t.currency} {t.amount.toLocaleString()}</td>
+                    <td>
+                      <input
+                        style={{ width: 180 }}
+                        placeholder="Optional comment"
+                        value={comments[t.taskId] ?? ""}
+                        onChange={(e) => setComments((c) => ({ ...c, [t.taskId]: e.target.value }))}
+                      />
+                    </td>
+                    <td className="actions-cell">
+                      <button className="small primary" disabled={busyTask === t.taskId} onClick={() => decide(t.taskId, true)}><Check size={13} strokeWidth={2.5} />Approve</button>
+                      <button className="small danger" disabled={busyTask === t.taskId} onClick={() => decide(t.taskId, false)}><X size={13} strokeWidth={2.5} />Reject</button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   );

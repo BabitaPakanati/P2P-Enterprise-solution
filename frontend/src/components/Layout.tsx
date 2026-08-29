@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { LayoutDashboard, FileText, CheckSquare, ShoppingCart, Layers, LogOut } from "lucide-react";
+import { LayoutDashboard, FileText, CheckSquare, ShoppingCart, Layers, LogOut, Shield, GitBranch } from "lucide-react";
 import { useSession } from "../context/SessionContext";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -8,6 +8,11 @@ const NAV = [
   { to: "/requisitions", label: "Requisitions", icon: FileText, end: false },
   { to: "/approvals", label: "Approvals", icon: CheckSquare, end: false },
   { to: "/purchase-orders", label: "Purchase Orders", icon: ShoppingCart, end: false },
+];
+
+const SETTINGS_NAV = [
+  { to: "/settings/roles", label: "Approval Roles", icon: Shield, end: false },
+  { to: "/settings/workflows", label: "Workflows", icon: GitBranch, end: false },
 ];
 
 function initials(label: string) {
@@ -39,6 +44,14 @@ export function Layout() {
         <nav>
           <div className="rail-section-label">Workspace</div>
           {NAV.map(({ to, label, icon: Icon, end }) => (
+            <NavLink key={to} to={to} end={end} className={({ isActive }) => (isActive ? "active" : "")}>
+              <Icon size={16} strokeWidth={2} />
+              {label}
+            </NavLink>
+          ))}
+
+          <div className="rail-section-label">Settings</div>
+          {SETTINGS_NAV.map(({ to, label, icon: Icon, end }) => (
             <NavLink key={to} to={to} end={end} className={({ isActive }) => (isActive ? "active" : "")}>
               <Icon size={16} strokeWidth={2} />
               {label}

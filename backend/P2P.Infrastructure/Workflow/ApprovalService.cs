@@ -96,6 +96,13 @@ public sealed class ApprovalService : IApprovalService
             userId: decidingUserId, userName: await _db.Users.Where(u => u.Id == decidingUserId).Select(u => u.DisplayName).FirstOrDefaultAsync(ct) ?? decidingUserId.ToString(),
             entityVersionId: documentVersionId, source: "API", reason: comments));
 
+        // One transaction covering the task/instance/audit save below AND the
+        // handler's own SaveChanges - without this, a handler failure (e.g. bad
+        // snapshot data) would leave the task/instance already committed as
+        // Approved/Rejected while the actual PR/PO never transitioned. Same class of
+        // bug as the one PurchaseRequisitionService/PurchaseOrderService.SubmitAsync
+        // just had fixed.
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
         await _db.SaveChangesAsync(ct);
 
         var handler = _completionHandlers.FirstOrDefault(h => h.EntityType == instance.EntityType);
@@ -110,6 +117,8 @@ public sealed class ApprovalService : IApprovalService
                 await handler.OnRejectedAsync(instance.EntityId, documentVersionId, comments, ct);
             }
         }
+
+        await transaction.CommitAsync(ct);
     }
 
     private async Task<(string Number, Guid RequesterId, decimal Amount, string Currency)> SummariseRequisitionAsync(Guid id, CancellationToken ct)

@@ -140,6 +140,15 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
         var document = await _db.Documents.FindAsync([pr.DocumentId], ct)!;
         var version = await _db.DocumentVersions.FindAsync([document!.CurrentVersionId!.Value], ct)!;
 
+        // One transaction spanning both SaveChanges calls below AND the ones inside
+        // WorkflowEngine.StartAsync (same DbContext instance, same DB connection) -
+        // if the engine can't resolve an approver (e.g. a misconfigured workflow
+        // with no matching AuthorityAssignment), everything rolls back and the
+        // requisition stays Draft, instead of being left PendingApproval with no
+        // approval task anyone can ever act on. Found live, not hypothetically -
+        // see docs/ARCHITECTURE.md.
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+
         pr.Status = PurchaseRequisitionStatus.PendingApproval;
         pr.UpdatedBy = _currentUser.UserId;
         pr.UpdatedAtUtc = DateTimeOffset.UtcNow;
@@ -155,6 +164,7 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
 
         version.WorkflowInstanceId = instanceId;
         await _db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
     }
 
     public async Task CancelAsync(Guid id, CancellationToken ct = default)
@@ -237,6 +247,9 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
         // in newVersion until approved, exactly like PurchaseOrderService.AmendAsync.
         document.CurrentStatus = nameof(DocumentVersionStatus.PendingApproval);
 
+        // See SubmitAsync's comment on why this whole thing is one transaction.
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+
         _db.DocumentVersions.Add(newVersion);
         _db.AuditLogs.Add(AuditLog.Create(EntityType, pr.Id, "SUBMIT", amendedBy, await UserNameAsync(amendedBy, ct), newVersion.Id, source: "API", reason: request.ChangeReason,
             comments: $"Amendment: v{currentVersion.VersionNumber} -> v{newVersion.VersionNumber}"));
@@ -245,6 +258,7 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
         var instanceId = await _workflowEngine.StartAsync(EntityType, pr.Id, newVersion.Id, new Dictionary<string, decimal> { ["Amount"] = proposedTotal }, ct);
         newVersion.WorkflowInstanceId = instanceId;
         await _db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
     }
 
     public async Task<RequisitionDetailDto?> GetAsync(Guid id, CancellationToken ct = default)

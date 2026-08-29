@@ -11,6 +11,8 @@ import { Approvals } from "./pages/Approvals";
 import { PurchaseOrdersList } from "./pages/PurchaseOrdersList";
 import { PurchaseOrderCreate } from "./pages/PurchaseOrderCreate";
 import { PurchaseOrderDetail } from "./pages/PurchaseOrderDetail";
+import { Roles } from "./pages/settings/Roles";
+import { Workflows } from "./pages/settings/Workflows";
 import { AdminLogin } from "./pages/admin/AdminLogin";
 import { OrganisationsList } from "./pages/admin/OrganisationsList";
 import { useSession } from "./context/SessionContext";
@@ -48,6 +50,8 @@ export default function App() {
         <Route path="/purchase-orders" element={<PurchaseOrdersList />} />
         <Route path="/purchase-orders/new" element={<PurchaseOrderCreate />} />
         <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />
+        <Route path="/settings/roles" element={<Roles />} />
+        <Route path="/settings/workflows" element={<Workflows />} />
       </Route>
 
       <Route

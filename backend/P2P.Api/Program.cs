@@ -4,11 +4,13 @@ using Microsoft.IdentityModel.Tokens;
 using P2P.Api.Diagnostics;
 using P2P.Api.MultiTenancy;
 using P2P.Application.Abstractions;
+using P2P.Application.Admin;
 using P2P.Application.Auth;
 using P2P.Application.Procurement;
 using P2P.Application.Workflow;
 using P2P.Domain.Organisation;
 using P2P.Domain.Platform;
+using P2P.Infrastructure.Admin;
 using P2P.Infrastructure.Auth;
 using P2P.Infrastructure.MultiTenancy;
 using P2P.Infrastructure.Persistence;
@@ -98,6 +100,10 @@ builder.Services.AddScoped<IWorkflowCompletionHandler>(sp => sp.GetRequiredServi
 builder.Services.AddScoped<PurchaseOrderService>();
 builder.Services.AddScoped<IPurchaseOrderService>(sp => sp.GetRequiredService<PurchaseOrderService>());
 builder.Services.AddScoped<IWorkflowCompletionHandler>(sp => sp.GetRequiredService<PurchaseOrderService>());
+
+// --- Org-level admin (roles, workflow configuration) ------------------------------------
+builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<IWorkflowConfigService, WorkflowConfigService>();
 
 var app = builder.Build();
 
@@ -316,6 +322,27 @@ approvals.MapPost("/{taskId:guid}/decide", async (IApprovalService svc, ICurrent
     await svc.DecideAsync(taskId, user.UserId, body.Approve, body.Comments);
     return Results.NoContent();
 });
+
+// --- Org-level admin (roles, workflow configuration) --------------------------------------
+// RequireAuthorization() only, no extra policy - there's no granular per-role
+// permission check anywhere else in the app yet either (§52's RBAC/SoD requirements
+// are modeled in the domain but not enforced at the API layer). Any signed-in org
+// user can reach these for now; that's a real gap to close before production, same
+// class of TODO as the platform-admin-only org provisioning endpoint had before it
+// got a real policy.
+
+var admin = app.MapGroup("/api/v1/admin").RequireAuthorization();
+
+admin.MapGet("/roles", async (IRoleService svc) => Results.Ok(await svc.ListAsync()));
+admin.MapPost("/roles", async (IRoleService svc, CreateRoleRequest body) => Results.Ok(new { Id = await svc.CreateAsync(body) }));
+
+admin.MapGet("/workflows", async (IWorkflowConfigService svc) => Results.Ok(await svc.ListAsync()));
+
+admin.MapPost("/workflows", async (IWorkflowConfigService svc, ICurrentUserContext user, CreateWorkflowDefinitionRequest body) =>
+    Results.Ok(new { Id = await svc.CreateDefinitionAsync(user.UserId, body) }));
+
+admin.MapPost("/workflows/{id:guid}/versions", async (IWorkflowConfigService svc, ICurrentUserContext user, Guid id, CreateWorkflowVersionRequest body) =>
+    Results.Ok(new { Id = await svc.CreateNewVersionAsync(id, user.UserId, body) }));
 
 app.Run();
 

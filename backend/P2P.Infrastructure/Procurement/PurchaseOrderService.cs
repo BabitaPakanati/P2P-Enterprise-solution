@@ -112,6 +112,12 @@ public sealed class PurchaseOrderService : IPurchaseOrderService, IWorkflowCompl
         var document = (await _db.Documents.FindAsync([po.DocumentId], ct))!;
         var version = (await _db.DocumentVersions.FindAsync([document.CurrentVersionId!.Value], ct))!;
 
+        // See PurchaseRequisitionService.SubmitAsync's comment: one transaction
+        // spanning this and WorkflowEngine.StartAsync's own SaveChanges, so a
+        // workflow that can't resolve an approver rolls the PO back to Draft
+        // instead of leaving it PendingApproval with no approval task.
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+
         po.Status = PurchaseOrderStatus.PendingApproval;
         po.UpdatedBy = _currentUser.UserId;
         po.UpdatedAtUtc = DateTimeOffset.UtcNow;
@@ -124,6 +130,7 @@ public sealed class PurchaseOrderService : IPurchaseOrderService, IWorkflowCompl
         var instanceId = await _workflowEngine.StartAsync(EntityType, po.Id, version.Id, new Dictionary<string, decimal> { ["Amount"] = po.TotalValue }, ct);
         version.WorkflowInstanceId = instanceId;
         await _db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
     }
 
     public async Task SendToSupplierAsync(Guid id, CancellationToken ct = default)
@@ -183,6 +190,9 @@ public sealed class PurchaseOrderService : IPurchaseOrderService, IWorkflowCompl
         // §76 guarantee: "the system must never replace V1."
         document.CurrentStatus = nameof(DocumentVersionStatus.PendingApproval);
 
+        // See PurchaseRequisitionService.SubmitAsync's comment on why this is one transaction.
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+
         _db.DocumentVersions.Add(newVersion);
         _db.AuditLogs.Add(AuditLog.Create(EntityType, po.Id, "SUBMIT", amendedBy, await UserNameAsync(amendedBy, ct), newVersion.Id, source: "API", reason: request.ChangeReason,
             comments: $"Amendment: v{currentVersion.VersionNumber} -> v{newVersion.VersionNumber}"));
@@ -191,6 +201,7 @@ public sealed class PurchaseOrderService : IPurchaseOrderService, IWorkflowCompl
         var instanceId = await _workflowEngine.StartAsync(EntityType, po.Id, newVersion.Id, new Dictionary<string, decimal> { ["Amount"] = proposedTotal }, ct);
         newVersion.WorkflowInstanceId = instanceId;
         await _db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
     }
 
     public async Task<OrderDetailDto?> GetAsync(Guid id, CancellationToken ct = default)

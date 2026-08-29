@@ -191,13 +191,19 @@ deploy time, never a fork of the business logic.
 | Audit | `AuditLog`, `AuditFieldChange` — append-only by construction (private setters, factory method) |
 | Workflow engine | `WorkflowDefinition → WorkflowVersion → WorkflowStep → WorkflowRule`, `WorkflowInstance`, `ApprovalTask` |
 
-## 6. Vertical slice scope (next up)
+## 6. Vertical slice scope — built and verified
 
-| Area | Scope |
+| Area | Status |
 |---|---|
-| Purchase Requisition | Create draft → submit → approve/reject via the generic workflow engine → cancel |
-| Purchase Order | Generated from an approved PR → submit → approve → amend (new version; old stays queryable) → send to supplier |
-| UI | Dashboard shell, My Requisitions + Create Requisition, My Approvals, PO Worklist + PO Detail with version history, minimal Admin |
+| Purchase Requisition | Create draft → submit → approve/reject via the generic workflow engine → cancel. Built. |
+| Purchase Order | Generated from an approved PR → submit → approve → amend (new version; old stays queryable) → send to supplier. Built. |
+| Workflow engine | Generic, entity-type-agnostic (§21) — resolves the effective WorkflowVersion, evaluates WorkflowRules, resolves the approver via effective-dated AuthorityAssignment. Reference implementation only: one matching step, one approval task (no multi-step/parallel/escalation yet — Phase 4). |
+| Maker-checker | Enforced in ApprovalService: the assigned approver must decide, and the requester/buyer may never approve their own transaction — verified live, including the edge case where an org's only approver created the PO themselves (correctly blocked, no override configured). |
+| UI | Dashboard, My/All Requisitions + Create Requisition, My Approvals (approve/reject with comments), PO Worklist + PO Detail with a real Version History tab and an inline Amend form. Built, React + TS. |
+
+Verified end-to-end against live Postgres, not just locally reasoned about: created a requisition, submitted it, approved it (and confirmed maker-checker blocks self-approval), converted it to a PO, submitted/approved/sent it, amended it (price change + added line), and confirmed the amendment's *new* version stayed pending while the *old* version remained the visibly effective one — then, once approved, the old version flipped to Superseded and stayed fully inspectable with its original figures. See the screenshots from this session or re-run the flow locally (below).
+
+One real bug found and fixed along the way: replacing a tracked entity's line-item collection via its private backing field (`ReplaceLines`) hit an EF Core `DbUpdateConcurrencyException` — the read-only `Lines` property wraps the field in a fresh `ReadOnlyCollection` on every access, which confused EF's snapshot-based diffing on `SaveChanges`. Fixed by issuing explicit `RemoveRange`/`AddRange` on the `DbSet` instead of relying on collection-snapshot diffing (`PurchaseOrderService.OnApprovedAsync`).
 
 ## 7. Phased roadmap
 
@@ -231,12 +237,14 @@ flowchart LR
 - [x] Model the Foundation entities
 - [x] Build the tenant-aware `AppDbContext` (schema-per-tenant model caching) and prove it compiles a migration
 - [x] Scaffold the React + TS frontend shell
-- [x] Stand up a local Postgres with two seeded org schemas (`org_acme`, `org_globex`) and prove request-level isolation end to end - done against a real local PostgreSQL 18 instance; see "Proven locally" below
+- [x] Stand up a local Postgres with two seeded org schemas (`org_acme`, `org_globex`) and prove request-level isolation end to end
+- [x] Build the generic workflow engine's evaluation logic (single-step reference implementation)
+- [x] Build Requisition → PO on top of the Foundation, with a working React UI
 - [ ] Automate the per-schema migration templating step (currently a manual `dotnet ef migrations script --idempotent` + schema-name substitution + `psql` apply, run once by hand - fine for two dev schemas, not for onboarding real organisations)
 - [ ] Replace `ConfigOrganisationRegistry` with a real `platform.organisations`-backed implementation
-- [ ] Build the generic workflow engine's evaluation logic
-- [ ] Build Requisition → PO on top of the Foundation
-- [ ] Revisit AWS account structure, RDS sizing, and Secrets Manager once the slice runs locally
+- [ ] Multi-step / parallel / escalation workflow support (Phase 4)
+- [ ] Sourcing, Supplier, Contract modules (Phase 2); Receiving, Invoice, Matching (Phase 3)
+- [ ] Revisit AWS account structure, RDS sizing, and Secrets Manager once more of the slice is validated
 
 ### Proven locally
 

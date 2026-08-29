@@ -50,4 +50,14 @@ public sealed class DocumentVersion : Entity
     public string? ChangeReason { get; set; }
     public string? ChangeComment { get; set; }
     public Guid? WorkflowInstanceId { get; set; }
+
+    /// <summary>
+    /// A JSON snapshot of the type-specific fields at the moment this version was
+    /// created (e.g. a PO's lines and total at V1). The current version's live data
+    /// lives in its own strongly-typed table (e.g. PurchaseOrder) for querying and
+    /// worklists; this snapshot is what makes a *superseded* version still fully
+    /// inspectable without a bespoke "_history" table per document type - see the
+    /// blueprint's PO-amendment acceptance scenario (§76).
+    /// </summary>
+    public string PayloadJson { get; set; } = "{}";
 }

@@ -3,6 +3,7 @@ using P2P.Application.Abstractions;
 using P2P.Domain.Audit;
 using P2P.Domain.Identity;
 using P2P.Domain.Organisation;
+using P2P.Domain.Procurement;
 using P2P.Domain.Versioning;
 using P2P.Domain.Workflow;
 
@@ -58,6 +59,12 @@ public sealed class AppDbContext : DbContext
     public DbSet<WorkflowInstance> WorkflowInstances => Set<WorkflowInstance>();
     public DbSet<ApprovalTask> ApprovalTasks => Set<ApprovalTask>();
 
+    // Procurement
+    public DbSet<PurchaseRequisition> PurchaseRequisitions => Set<PurchaseRequisition>();
+    public DbSet<PurchaseRequisitionLine> PurchaseRequisitionLines => Set<PurchaseRequisitionLine>();
+    public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
+    public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(TenantSchemaName);
@@ -91,5 +98,27 @@ public sealed class AppDbContext : DbContext
         modelBuilder.Entity<WorkflowRule>().ToTable("workflow_rule");
         modelBuilder.Entity<WorkflowInstance>().ToTable("workflow_instance");
         modelBuilder.Entity<ApprovalTask>().ToTable("workflow_approval_task");
+
+        modelBuilder.Entity<PurchaseRequisition>(b =>
+        {
+            b.ToTable("procurement_purchase_requisition");
+            b.HasMany(p => p.Lines).WithOne().HasForeignKey(l => l.PurchaseRequisitionId);
+        });
+        modelBuilder.Entity<PurchaseRequisitionLine>(b =>
+        {
+            b.ToTable("procurement_purchase_requisition_line");
+            b.Ignore(l => l.EstimatedValue); // computed (Quantity * EstimatedUnitPrice), not stored
+        });
+
+        modelBuilder.Entity<PurchaseOrder>(b =>
+        {
+            b.ToTable("procurement_purchase_order");
+            b.HasMany(p => p.Lines).WithOne().HasForeignKey(l => l.PurchaseOrderId);
+        });
+        modelBuilder.Entity<PurchaseOrderLine>(b =>
+        {
+            b.ToTable("procurement_purchase_order_line");
+            b.Ignore(l => l.LineValue); // computed (Quantity * UnitPrice), not stored
+        });
     }
 }

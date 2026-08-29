@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import "./index.css";
 import App from "./App.tsx";
 import { SessionProvider } from "./context/SessionContext";
+import { AdminSessionProvider } from "./context/AdminSessionContext";
 import { ThemeProvider } from "./context/ThemeContext";
 
 createRoot(document.getElementById("root")!).render(
@@ -11,7 +12,9 @@ createRoot(document.getElementById("root")!).render(
     <ThemeProvider>
       <BrowserRouter>
         <SessionProvider>
-          <App />
+          <AdminSessionProvider>
+            <App />
+          </AdminSessionProvider>
         </SessionProvider>
       </BrowserRouter>
     </ThemeProvider>

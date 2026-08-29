@@ -4,8 +4,9 @@ namespace P2P.Infrastructure.MultiTenancy;
 
 /// <summary>
 /// Scoped (one instance per request/job). Set once, early, by
-/// <see cref="TenantResolutionMiddleware"/> - everything downstream (AppDbContext,
-/// handlers, audit writer) reads it, nothing downstream re-resolves the tenant.
+/// IdentityResolutionMiddleware - everything downstream (AppDbContext, handlers,
+/// audit writer) reads it, nothing downstream re-resolves the tenant. Never set at
+/// all for a platform-admin request, by design - see that middleware's class comment.
 /// </summary>
 public sealed class TenantContext : ITenantContext
 {
@@ -32,7 +33,8 @@ public sealed class TenantContext : ITenantContext
         {
             throw new InvalidOperationException(
                 "Tenant context accessed before it was resolved. " +
-                "Ensure TenantResolutionMiddleware runs before any tenant-scoped work.");
+                "Ensure IdentityResolutionMiddleware runs before any tenant-scoped work " +
+                "(a platform-admin token never resolves one - this endpoint may need to be under the PlatformAdmin policy instead).");
         }
         return value;
     }

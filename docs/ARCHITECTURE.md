@@ -247,7 +247,9 @@ flowchart LR
 - [x] **Real `platform.organisations` registry** (`PlatformDbContext`) - replaces the appsettings.json stand-in
 - [x] **Automate org provisioning** - `PlatformOrganisationProvisioner` creates the schema and runs migrations against it programmatically (`POST /api/v1/platform/organisations`); the manual script+psql ritual is retired
 - [x] **Real authentication** - self-hosted JWT (`POST /api/v1/auth/login`), replacing the `X-Org-Code`/`X-User-Id` header stand-ins for every endpoint except dev-only bootstrap diagnostics; passwords hashed with ASP.NET Core Identity's `PasswordHasher<T>`
-- [ ] Platform-admin authorization for `/api/v1/platform/organisations` (currently anonymous - flagged directly in the code, not hidden)
+- [x] **Platform-admin identity + root admin panel** - a second, separate JWT-based identity tier (`PlatformAdminUser`, lives in the `platform` schema, no org claims) gates org provisioning behind a real `PlatformAdmin` authorization policy instead of the anonymous endpoint from the previous milestone. `/admin/*` in the frontend: login, organisation list, and a "Create Organisation" form that provisions a real schema live, verified end to end in the browser.
+- [ ] Per-org configurable custom fields (per entity type: key, label, data type, required, dependency) - next up
+- [ ] Per-org configurable workflow admin UI (CRUD over the engine that already runs, respecting effective-dated versioning) - next up
 - [ ] Delegation, escalation, and password-reset/account-recovery flows
 - [ ] Multi-step / parallel workflow support (Phase 4)
 - [ ] Sourcing, Supplier, Contract modules (Phase 2); Receiving, Invoice, Matching (Phase 3)

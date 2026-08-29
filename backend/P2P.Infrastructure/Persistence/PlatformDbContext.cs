@@ -15,9 +15,16 @@ public sealed class PlatformDbContext : DbContext
     public PlatformDbContext(DbContextOptions<PlatformDbContext> options) : base(options) { }
 
     public DbSet<Organisation> Organisations => Set<Organisation>();
+    public DbSet<PlatformAdminUser> AdminUsers => Set<PlatformAdminUser>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<PlatformAdminUser>(b =>
+        {
+            b.ToTable("platform_admin_user");
+            b.HasIndex(a => a.Email).IsUnique();
+        });
+
         modelBuilder.Entity<Organisation>(b =>
         {
             b.ToTable("organisations");

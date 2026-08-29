@@ -56,6 +56,7 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IPlatformAuthService, PlatformAuthService>();
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
     ?? throw new InvalidOperationException("Jwt configuration is missing - set Jwt:SigningKey via user secrets.");
@@ -80,7 +81,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ClockSkew = TimeSpan.FromMinutes(1)
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+    options.AddPolicy("PlatformAdmin", p => p.RequireClaim("platform_admin", "true")));
 
 // --- Workflow + Procurement ------------------------------------------------------------
 // The engine is entity-type agnostic; each module registers itself as both its own
@@ -157,17 +159,32 @@ app.MapPost("/api/v1/auth/login", async (IAuthService auth, HttpContext ctx, Log
     return Results.Ok(result);
 }).AllowAnonymous();
 
-// --- Platform (org provisioning) ----------------------------------------------------------
-// Anonymous for now - no platform-admin authorization scheme exists yet to gate this
-// behind, which is a real gap before production use (anyone who can reach this
-// endpoint can create an organisation). Automates what was a manual dotnet-ef-script
-// + psql ritual for every new organisation - see PlatformOrganisationProvisioner.
+app.MapPost("/api/v1/platform/auth/login", async (IPlatformAuthService auth, PlatformLoginRequest body) =>
+    Results.Ok(await auth.LoginAsync(body.Email, body.Password))).AllowAnonymous();
 
-app.MapPost("/api/v1/platform/organisations", async (PlatformOrganisationProvisioner provisioner, ProvisionOrgRequest body) =>
+// Dev-only bootstrap - see PlatformAdminSeeder. A real deployment provisions the
+// first root admin out-of-band, never via an open endpoint like this one.
+app.MapPost("/api/v1/platform/_diagnostics/seed-admin", async (PlatformDbContext db) =>
+    Results.Ok(await PlatformAdminSeeder.SeedAsync(db, default))).AllowAnonymous();
+
+// --- Platform (org provisioning) ----------------------------------------------------------
+// Gated behind the PlatformAdmin policy - a signed-in root admin only. Automates
+// what was a manual dotnet-ef-script + psql ritual for every new organisation -
+// see PlatformOrganisationProvisioner.
+
+var platform = app.MapGroup("/api/v1/platform").RequireAuthorization("PlatformAdmin");
+
+platform.MapGet("/organisations", async (PlatformDbContext db) =>
+    Results.Ok(await db.Organisations
+        .OrderBy(o => o.DisplayName)
+        .Select(o => new { o.Id, o.OrgCode, o.DisplayName, o.SchemaName, Status = o.Status.ToString(), o.CreatedAtUtc })
+        .ToListAsync()));
+
+platform.MapPost("/organisations", async (PlatformOrganisationProvisioner provisioner, ProvisionOrgRequest body) =>
 {
     var org = await provisioner.ProvisionAsync(body.OrgCode, body.DisplayName);
     return Results.Ok(new { org.Id, org.OrgCode, org.DisplayName, org.SchemaName, Status = org.Status.ToString() });
-}).AllowAnonymous();
+});
 
 // --- Dev-only diagnostics ------------------------------------------------------------------
 
@@ -305,4 +322,5 @@ app.Run();
 record CreateLegalEntityRequest(string Code, string Name, string? Country, string? BaseCurrency);
 record DecideApprovalRequest(bool Approve, string? Comments);
 record LoginRequest(string Email, string Password);
+record PlatformLoginRequest(string Email, string Password);
 record ProvisionOrgRequest(string OrgCode, string DisplayName);

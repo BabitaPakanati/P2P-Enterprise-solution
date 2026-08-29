@@ -6,12 +6,17 @@ namespace P2P.Api.MultiTenancy;
 
 /// <summary>
 /// Populates TenantContext and CurrentUserContext for the request. For an
-/// authenticated request that means reading the org_id/org_code/schema/sub claims a
-/// login-issued JWT carries - see JwtTokenService. A handful of dev-only bootstrap
-/// endpoints (seed-foundation, org provisioning) have no user yet to authenticate as,
-/// so they fall back to resolving tenant from an X-Org-Code header exactly like the
-/// whole API used to; every other endpoint is behind RequireAuthorization() and gets
-/// a standard 401 from UseAuthorization() if it reaches this middleware unauthenticated.
+/// org-user's token that means reading the org_id/org_code/schema/sub claims a
+/// login-issued JWT carries - see JwtTokenService. A platform admin's token carries
+/// no org claims at all by design (see CreatePlatformAdminToken) - platform
+/// endpoints work against PlatformDbContext directly, or take an org as an explicit
+/// parameter, never an implicit TenantContext - so that token type skips tenant/user
+/// resolution entirely and relies on the "PlatformAdmin" authorization policy
+/// instead. A handful of dev-only bootstrap endpoints (seed-foundation, seed-admin)
+/// have no user yet to authenticate as, so they fall back to resolving tenant from
+/// an X-Org-Code header exactly like the whole API used to; every other endpoint is
+/// behind RequireAuthorization() and gets a standard 401 from UseAuthorization() if
+/// it reaches this middleware unauthenticated.
 /// </summary>
 public sealed class IdentityResolutionMiddleware
 {
@@ -30,6 +35,13 @@ public sealed class IdentityResolutionMiddleware
 
         if (context.User.Identity?.IsAuthenticated == true)
         {
+            if (context.User.HasClaim("platform_admin", "true"))
+            {
+                // No tenant to resolve - see the class comment.
+                await _next(context);
+                return;
+            }
+
             var orgId = context.User.FindFirst("org_id")?.Value;
             var orgCode = context.User.FindFirst("org_code")?.Value;
             var schema = context.User.FindFirst("schema")?.Value;
@@ -78,16 +90,17 @@ public sealed class IdentityResolutionMiddleware
 
     /// <summary>
     /// Paths that need no tenant at all - either there's no tenant yet
-    /// (provisioning a new one) or the caller supplies org context some other way
-    /// (login reads X-Org-Code itself, to pick which schema to check credentials
-    /// against, without this middleware needing to resolve a full TenantContext for
-    /// an unauthenticated caller).
+    /// (org/admin login, admin bootstrap) or the caller supplies org context some
+    /// other way (org-user login reads X-Org-Code itself, to pick which schema to
+    /// check credentials against, without this middleware needing to resolve a full
+    /// TenantContext for an unauthenticated caller).
     /// </summary>
     private static bool IsPublicPath(PathString path) =>
         path.StartsWithSegments("/health") ||
         path.StartsWithSegments("/openapi") ||
         path.StartsWithSegments("/api/v1/auth/login") ||
-        path.StartsWithSegments("/api/v1/platform/organisations");
+        path.StartsWithSegments("/api/v1/platform/auth/login") ||
+        path.StartsWithSegments("/api/v1/platform/_diagnostics/seed-admin");
 
     /// <summary>
     /// Dev-only bootstrap endpoints that need a tenant resolved but have no user to

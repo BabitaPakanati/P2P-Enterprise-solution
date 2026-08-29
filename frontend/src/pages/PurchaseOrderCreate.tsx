@@ -6,6 +6,7 @@ import { getRequisition, createOrder } from "../api/procurement";
 import { ApiError } from "../api/client";
 import type { RequisitionDetail, CreateOrderLineInput } from "../api/types";
 import { DynamicFields, type CustomFieldValues } from "../components/DynamicFields";
+import { QuantityInput } from "../components/QuantityInput";
 
 export function PurchaseOrderCreate() {
   const [params] = useSearchParams();
@@ -81,13 +82,13 @@ export function PurchaseOrderCreate() {
 
         <table className="line-table">
           <thead>
-            <tr><th>Item</th><th style={{ width: 90 }}>Qty</th><th style={{ width: 90 }}>UOM</th><th style={{ width: 130 }}>Unit price</th><th style={{ width: 110 }} className="num">Line value</th></tr>
+            <tr><th>Item</th><th style={{ width: 120 }}>Qty</th><th style={{ width: 90 }}>UOM</th><th style={{ width: 130 }}>Unit price</th><th style={{ width: 110 }} className="num">Line value</th></tr>
           </thead>
           <tbody>
             {lines.map((l, i) => (
               <tr key={i}>
                 <td><input value={l.itemDescription} onChange={(e) => updateLine(i, { itemDescription: e.target.value })} /></td>
-                <td><input type="number" min={0} step="0.01" value={l.quantity} onChange={(e) => updateLine(i, { quantity: Number(e.target.value) })} /></td>
+                <td><QuantityInput value={String(l.quantity)} uom={l.uom} onChange={(raw) => updateLine(i, { quantity: Number(raw) || 0 })} /></td>
                 <td><input value={l.uom} onChange={(e) => updateLine(i, { uom: e.target.value })} /></td>
                 <td><input type="number" min={0} step="0.01" value={l.unitPrice} onChange={(e) => updateLine(i, { unitPrice: Number(e.target.value) })} /></td>
                 <td className="num">{(l.quantity * l.unitPrice).toLocaleString()}</td>

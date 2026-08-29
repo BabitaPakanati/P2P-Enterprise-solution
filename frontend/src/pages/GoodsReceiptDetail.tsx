@@ -7,6 +7,7 @@ import { ApiError } from "../api/client";
 import type { GoodsReceiptDetail as GoodsReceiptDetailDto, DocumentVersion, CreateGoodsReceiptLineInput } from "../api/types";
 import { StatusBadge } from "../components/StatusBadge";
 import { DynamicFields, type CustomFieldValues } from "../components/DynamicFields";
+import { QuantityInput } from "../components/QuantityInput";
 
 interface GrSnapshotLine { ItemDescription: string; Uom: string; QuantityOrdered: number; QuantityReceived: number; QuantityAccepted: number; QuantityRejected: number; InspectionStatus: string }
 interface GrSnapshot { DeliveryDate: string; DeliveryNoteNumber: string | null; Location: string | null; Lines: GrSnapshotLine[] }
@@ -195,13 +196,13 @@ function CorrectForm({ gr, onDone, onCancel }: { gr: GoodsReceiptDetailDto; onDo
       </div>
 
       <table className="line-table">
-        <thead><tr><th>Item</th><th style={{ width: 110 }}>Qty received</th><th style={{ width: 110 }}>Qty rejected</th></tr></thead>
+        <thead><tr><th>Item</th><th style={{ width: 130 }}>Qty received</th><th style={{ width: 130 }}>Qty rejected</th></tr></thead>
         <tbody>
           {lines.map((l, i) => (
             <tr key={l.purchaseOrderLineId}>
               <td>{l.itemDescription} <span className="hint">({l.uom})</span></td>
-              <td><input type="number" min={0} step="0.01" value={l.quantityReceived} onChange={(e) => updateLine(i, { quantityReceived: e.target.value })} /></td>
-              <td><input type="number" min={0} step="0.01" value={l.quantityRejected} onChange={(e) => updateLine(i, { quantityRejected: e.target.value })} /></td>
+              <td><QuantityInput value={l.quantityReceived} uom={l.uom} onChange={(raw) => updateLine(i, { quantityReceived: raw })} /></td>
+              <td><QuantityInput value={l.quantityRejected} uom={l.uom} max={Number(l.quantityReceived) || 0} onChange={(raw) => updateLine(i, { quantityRejected: raw })} /></td>
             </tr>
           ))}
         </tbody>

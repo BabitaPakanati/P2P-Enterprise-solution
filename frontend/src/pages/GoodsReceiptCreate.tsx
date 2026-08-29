@@ -7,6 +7,7 @@ import { getPurchaseOrderReceiptStatus, createGoodsReceipt } from "../api/receiv
 import { ApiError } from "../api/client";
 import type { OrderDetail, PurchaseOrderReceiptStatus } from "../api/types";
 import { DynamicFields, type CustomFieldValues } from "../components/DynamicFields";
+import { QuantityInput } from "../components/QuantityInput";
 
 interface LineInput {
   purchaseOrderLineId: string;
@@ -115,7 +116,7 @@ export function GoodsReceiptCreate() {
           <thead>
             <tr>
               <th>Item</th><th style={{ width: 90 }} className="num">Ordered</th><th style={{ width: 90 }} className="num">Remaining</th>
-              <th style={{ width: 110 }}>Qty received</th><th style={{ width: 110 }}>Qty rejected</th>
+              <th style={{ width: 130 }}>Qty received</th><th style={{ width: 130 }}>Qty rejected</th>
             </tr>
           </thead>
           <tbody>
@@ -124,8 +125,8 @@ export function GoodsReceiptCreate() {
                 <td>{l.itemDescription} <span className="hint">({l.uom})</span></td>
                 <td className="num">{l.quantityOrdered}</td>
                 <td className="num">{l.quantityRemaining}</td>
-                <td><input type="number" min={0} step="0.01" max={l.quantityRemaining} value={l.quantityReceived} onChange={(e) => updateLine(i, { quantityReceived: e.target.value })} /></td>
-                <td><input type="number" min={0} step="0.01" value={l.quantityRejected} onChange={(e) => updateLine(i, { quantityRejected: e.target.value })} /></td>
+                <td><QuantityInput value={l.quantityReceived} uom={l.uom} max={l.quantityRemaining} onChange={(raw) => updateLine(i, { quantityReceived: raw })} /></td>
+                <td><QuantityInput value={l.quantityRejected} uom={l.uom} max={Number(l.quantityReceived) || 0} onChange={(raw) => updateLine(i, { quantityRejected: raw })} /></td>
               </tr>
             ))}
           </tbody>

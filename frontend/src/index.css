@@ -335,6 +335,41 @@ td.actions-cell { display: flex; gap: 0.4rem; }
 .line-table tr:last-child td { border-bottom: none; }
 .line-table input { width: 100%; }
 
+/* ========================================================================== quantity stepper */
+.qty-field {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.qty-field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.qty-field.is-disabled { opacity: 0.6; }
+.qty-field input {
+  border: none;
+  border-radius: 0;
+  box-shadow: none !important;
+  text-align: center;
+  padding: 0.5rem 0.2rem;
+  min-width: 0;
+  flex: 1;
+  -moz-appearance: textfield;
+}
+.qty-field input::-webkit-outer-spin-button, .qty-field input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.qty-field button {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--surface-2);
+  color: var(--ink-faint);
+  padding: 0 0.45rem;
+}
+.qty-field button:hover:not(:disabled) { background: var(--surface-hover); color: var(--ink); }
+.qty-field button:active:not(:disabled) { transform: none; }
+.qty-field button:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+
 .form-actions { display: flex; gap: 0.6rem; margin-top: 1.3rem; padding-top: 1.1rem; border-top: 1px solid var(--border); }
 .error-banner { background: var(--critical-soft); color: var(--critical); border: 1px solid color-mix(in srgb, var(--critical) 30%, transparent); border-radius: var(--radius-sm); padding: 0.65rem 0.95rem; margin-bottom: 1.1rem; font-size: 0.85rem; }
 .hint { color: var(--ink-faint); font-size: 0.8rem; }

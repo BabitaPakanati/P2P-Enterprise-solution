@@ -8,6 +8,7 @@ import { ApiError } from "../api/client";
 import type { OrderDetail, DocumentVersion, CreateOrderLineInput, GoodsReceiptSummary, PurchaseOrderReceiptStatus } from "../api/types";
 import { StatusBadge } from "../components/StatusBadge";
 import { DynamicFields, type CustomFieldValues } from "../components/DynamicFields";
+import { QuantityInput } from "../components/QuantityInput";
 
 interface PoSnapshotLine { ItemDescription: string; Quantity: number; Uom: string; UnitPrice: number }
 interface PoSnapshot { SupplierName: string; DeliveryDate: string | null; TotalValue: number; Currency: string; Lines: PoSnapshotLine[] }
@@ -222,12 +223,12 @@ function AmendForm({ po, onDone, onCancel }: { po: OrderDetail; onDone: () => vo
       </div>
 
       <table className="line-table">
-        <thead><tr><th>Item</th><th style={{ width: 90 }}>Qty</th><th style={{ width: 90 }}>UOM</th><th style={{ width: 130 }}>Unit price</th><th style={{ width: 110 }} className="num">Line value</th><th></th></tr></thead>
+        <thead><tr><th>Item</th><th style={{ width: 120 }}>Qty</th><th style={{ width: 90 }}>UOM</th><th style={{ width: 130 }}>Unit price</th><th style={{ width: 110 }} className="num">Line value</th><th></th></tr></thead>
         <tbody>
           {lines.map((l, i) => (
             <tr key={i}>
               <td><input value={l.itemDescription} onChange={(e) => updateLine(i, { itemDescription: e.target.value })} /></td>
-              <td><input type="number" min={0} step="0.01" value={l.quantity} onChange={(e) => updateLine(i, { quantity: Number(e.target.value) })} /></td>
+              <td><QuantityInput value={String(l.quantity)} uom={l.uom} onChange={(raw) => updateLine(i, { quantity: Number(raw) || 0 })} /></td>
               <td><input value={l.uom} onChange={(e) => updateLine(i, { uom: e.target.value })} /></td>
               <td><input type="number" min={0} step="0.01" value={l.unitPrice} onChange={(e) => updateLine(i, { unitPrice: Number(e.target.value) })} /></td>
               <td className="num">{(l.quantity * l.unitPrice).toLocaleString()}</td>

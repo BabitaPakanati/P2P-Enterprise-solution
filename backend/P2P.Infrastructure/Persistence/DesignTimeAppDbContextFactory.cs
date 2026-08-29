@@ -19,7 +19,9 @@ public sealed class DesignTimeAppDbContextFactory : IDesignTimeDbContextFactory<
 
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
         optionsBuilder
-            .UseNpgsql("Host=localhost;Database=p2p_design_time;Username=postgres;Password=postgres")
+            .UseNpgsql(
+                "Host=localhost;Database=p2p_design_time;Username=postgres;Password=postgres",
+                npgsql => npgsql.ScopeMigrationsHistoryToTenant(schema))
             .ReplaceService<Microsoft.EntityFrameworkCore.Infrastructure.IModelCacheKeyFactory, TenantModelCacheKeyFactory>();
 
         return new AppDbContext(optionsBuilder.Options, new DesignTimeTenantContext(schema));

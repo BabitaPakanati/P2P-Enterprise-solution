@@ -231,8 +231,35 @@ flowchart LR
 - [x] Model the Foundation entities
 - [x] Build the tenant-aware `AppDbContext` (schema-per-tenant model caching) and prove it compiles a migration
 - [x] Scaffold the React + TS frontend shell
-- [ ] Stand up a local Postgres with two seeded org schemas (`org_acme`, `org_globex`) and prove request-level isolation end to end via `/api/v1/_diagnostics/tenant`
+- [x] Stand up a local Postgres with two seeded org schemas (`org_acme`, `org_globex`) and prove request-level isolation end to end - done against a real local PostgreSQL 18 instance; see "Proven locally" below
+- [ ] Automate the per-schema migration templating step (currently a manual `dotnet ef migrations script --idempotent` + schema-name substitution + `psql` apply, run once by hand - fine for two dev schemas, not for onboarding real organisations)
 - [ ] Replace `ConfigOrganisationRegistry` with a real `platform.organisations`-backed implementation
 - [ ] Build the generic workflow engine's evaluation logic
 - [ ] Build Requisition → PO on top of the Foundation
 - [ ] Revisit AWS account structure, RDS sizing, and Secrets Manager once the slice runs locally
+
+### Proven locally
+
+Local PostgreSQL 18, a dedicated low-privilege `p2p_app` role/database (never the
+superuser), and two fully-migrated org schemas. Verified through the real API, not
+just `psql`:
+
+```
+POST /api/v1/_diagnostics/legal-entities   (X-Org-Code: acme)   -> writes to org_acme
+POST /api/v1/_diagnostics/legal-entities   (X-Org-Code: globex) -> writes to org_globex
+GET  /api/v1/_diagnostics/legal-entities   (X-Org-Code: acme)   -> returns only Acme's row
+GET  /api/v1/_diagnostics/legal-entities   (X-Org-Code: globex) -> returns only Globex's row
+```
+
+One real bug surfaced and fixed in the process: EF Core's own migrations-history
+table (`__EFMigrationsHistory`) needs to be schema-qualified per tenant too, not just
+the business tables - left unqualified it defaults to `public` and is shared across
+every org, so the *second* organisation's migration apply silently no-ops (the first
+org's history row satisfies the idempotent script's "already applied" check). Fixed
+via `NpgsqlDbContextOptionsBuilder.MigrationsHistoryTable(name, schema)`, wired
+through both `Program.cs` and `DesignTimeAppDbContextFactory`
+(`ScopeMigrationsHistoryToTenant`).
+
+Local Postgres connection string lives in **.NET user secrets**
+(`dotnet user-secrets set ConnectionStrings:Postgres ... --project P2P.Api`), not in
+`appsettings.json` - the checked-in file only has a non-functional placeholder.

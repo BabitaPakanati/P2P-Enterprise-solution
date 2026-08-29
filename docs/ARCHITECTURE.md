@@ -199,7 +199,7 @@ deploy time, never a fork of the business logic.
 
 | Area | Status |
 |---|---|
-| Purchase Requisition | Create draft → submit → approve/reject via the generic workflow engine → cancel. Built. |
+| Purchase Requisition | Create draft → edit draft → submit → approve/reject via the generic workflow engine → cancel. Once Approved (and before a PO is created from it), amend it - same versioned pattern as PO amendment: new pending version, old one stays effective until approved. Built. |
 | Purchase Order | Generated from an approved PR → submit → approve → amend (new version; old stays queryable) → send to supplier. Built. |
 | Workflow engine | Generic, entity-type-agnostic (§21) — resolves the effective WorkflowVersion, evaluates WorkflowRules, resolves the approver via effective-dated AuthorityAssignment. Reference implementation only: one matching step, one approval task (no multi-step/parallel/escalation yet — Phase 4). |
 | Maker-checker | Enforced in ApprovalService: the assigned approver must decide, and the requester/buyer may never approve their own transaction — verified live, including the edge case where an org's only approver created the PO themselves (correctly blocked, no override configured). |

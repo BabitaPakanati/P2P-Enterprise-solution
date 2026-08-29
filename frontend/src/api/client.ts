@@ -24,7 +24,7 @@ async function parseResponse<T>(res: Response): Promise<T> {
  * IdentityResolutionMiddleware reads now.
  */
 export function createApi(token: string | null) {
-  const request = async <T,>(path: string, method: "GET" | "POST", body?: unknown): Promise<T> => {
+  const request = async <T,>(path: string, method: "GET" | "POST" | "PUT", body?: unknown): Promise<T> => {
     const headers: Record<string, string> = {};
     if (token) headers.Authorization = `Bearer ${token}`;
     if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -40,6 +40,7 @@ export function createApi(token: string | null) {
   return {
     get: <T,>(path: string) => request<T>(path, "GET"),
     post: <T,>(path: string, body?: unknown) => request<T>(path, "POST", body ?? {}),
+    put: <T,>(path: string, body?: unknown) => request<T>(path, "PUT", body ?? {}),
   };
 }
 

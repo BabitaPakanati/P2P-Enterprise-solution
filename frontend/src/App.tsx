@@ -4,6 +4,7 @@ import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { RequisitionsList } from "./pages/RequisitionsList";
 import { RequisitionCreate } from "./pages/RequisitionCreate";
+import { RequisitionEdit } from "./pages/RequisitionEdit";
 import { RequisitionDetail } from "./pages/RequisitionDetail";
 import { Approvals } from "./pages/Approvals";
 import { PurchaseOrdersList } from "./pages/PurchaseOrdersList";
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/requisitions" element={<RequisitionsList />} />
         <Route path="/requisitions/new" element={<RequisitionCreate />} />
+        <Route path="/requisitions/:id/edit" element={<RequisitionEdit />} />
         <Route path="/requisitions/:id" element={<RequisitionDetail />} />
         <Route path="/approvals" element={<Approvals />} />
         <Route path="/purchase-orders" element={<PurchaseOrdersList />} />

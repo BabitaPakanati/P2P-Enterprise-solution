@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using P2P.Application.Abstractions;
 using P2P.Application.Procurement;
@@ -32,21 +33,10 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
 
     public async Task<Guid> CreateAsync(Guid requesterId, CreateRequisitionRequest request, CancellationToken ct = default)
     {
-        if (request.Lines.Count == 0)
-        {
-            throw new InvalidOperationException("A requisition needs at least one line.");
-        }
-        foreach (var line in request.Lines)
-        {
-            if (line.Quantity <= 0) throw new InvalidOperationException($"Line '{line.ItemDescription}': quantity must be greater than zero.");
-            if (string.IsNullOrWhiteSpace(line.Uom)) throw new InvalidOperationException($"Line '{line.ItemDescription}': UOM is required.");
-        }
-        if (request.RequiredByDate < DateOnly.FromDateTime(DateTime.UtcNow))
-        {
-            throw new InvalidOperationException("Required-by date cannot be in the past.");
-        }
+        ValidateLines(request.Lines);
+        ValidateRequiredByDate(request.RequiredByDate);
 
-        var number = await NextNumberAsync("PR", ct);
+        var number = await NextNumberAsync(ct);
         var now = DateTimeOffset.UtcNow;
 
         var document = new Document
@@ -84,22 +74,12 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
             CreatedBy = requesterId,
             CreatedAtUtc = now
         };
-
-        var lineNo = 1;
-        foreach (var l in request.Lines)
+        foreach (var line in ToLines(request.Lines, pr.Id))
         {
-            pr.AddLine(new PurchaseRequisitionLine
-            {
-                PurchaseRequisitionId = pr.Id,
-                LineNumber = lineNo++,
-                ItemDescription = l.ItemDescription,
-                Quantity = l.Quantity,
-                Uom = l.Uom,
-                EstimatedUnitPrice = l.EstimatedUnitPrice
-            });
+            pr.AddLine(line);
         }
         pr.EstimatedValue = pr.Lines.Sum(l => l.EstimatedValue);
-        version.PayloadJson = SnapshotJson(pr);
+        version.PayloadJson = Snapshot(pr);
 
         _db.Documents.Add(document);
         _db.DocumentVersions.Add(version);
@@ -108,6 +88,45 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
 
         await _db.SaveChangesAsync(ct);
         return pr.Id;
+    }
+
+    public async Task UpdateAsync(Guid id, UpdateRequisitionRequest request, CancellationToken ct = default)
+    {
+        var pr = await _db.PurchaseRequisitions.Include(p => p.Lines).FirstOrDefaultAsync(p => p.Id == id, ct)
+            ?? throw new InvalidOperationException("Requisition not found.");
+        if (pr.Status != PurchaseRequisitionStatus.Draft)
+        {
+            throw new InvalidOperationException($"Only a Draft requisition can be edited (current status: {pr.Status}). Once approved, use Amend instead.");
+        }
+        ValidateLines(request.Lines);
+        ValidateRequiredByDate(request.RequiredByDate);
+
+        pr.RequiredByDate = request.RequiredByDate;
+        pr.RequisitionType = request.RequisitionType;
+        pr.Description = request.Description;
+        pr.Category = request.Category;
+        pr.Currency = request.Currency;
+        pr.PreferredSupplierName = request.PreferredSupplierName;
+
+        var newLines = ToLines(request.Lines, pr.Id).ToList();
+        _db.PurchaseRequisitionLines.RemoveRange(pr.Lines);
+        _db.PurchaseRequisitionLines.AddRange(newLines);
+        pr.ReplaceLines(newLines);
+        pr.EstimatedValue = pr.Lines.Sum(l => l.EstimatedValue);
+        pr.UpdatedBy = _currentUser.UserId;
+        pr.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        // Still Draft, never submitted - refresh the v1 snapshot in place rather than
+        // minting a new version. Nothing has been committed yet for history to protect.
+        var document = await _db.Documents.FindAsync([pr.DocumentId], ct);
+        if (document?.CurrentVersionId is Guid versionId)
+        {
+            var version = await _db.DocumentVersions.FindAsync([versionId], ct);
+            if (version is not null) version.PayloadJson = Snapshot(pr);
+        }
+
+        _db.AuditLogs.Add(AuditLog.Create(EntityType, pr.Id, "UPDATE", _currentUser.UserId, await UserNameAsync(_currentUser.UserId, ct), document?.CurrentVersionId, source: "API"));
+        await _db.SaveChangesAsync(ct);
     }
 
     public async Task SubmitAsync(Guid id, CancellationToken ct = default)
@@ -178,6 +197,56 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
         await _db.SaveChangesAsync(ct);
     }
 
+    public async Task AmendAsync(Guid id, Guid amendedBy, AmendRequisitionRequest request, CancellationToken ct = default)
+    {
+        var pr = await _db.PurchaseRequisitions.FindAsync([id], ct) ?? throw new InvalidOperationException("Requisition not found.");
+        if (pr.Status != PurchaseRequisitionStatus.Approved)
+        {
+            throw new InvalidOperationException(
+                $"A requisition in status '{pr.Status}' cannot be amended - it must be Approved and not yet converted to a purchase order.");
+        }
+        ValidateLines(request.Lines);
+        ValidateRequiredByDate(request.RequiredByDate);
+        if (string.IsNullOrWhiteSpace(request.ChangeReason))
+        {
+            throw new InvalidOperationException("A change reason is required to amend a requisition.");
+        }
+
+        var document = (await _db.Documents.FindAsync([pr.DocumentId], ct))!;
+        var currentVersion = (await _db.DocumentVersions.FindAsync([document.CurrentVersionId!.Value], ct))!;
+        var now = DateTimeOffset.UtcNow;
+
+        var proposedTotal = request.Lines.Sum(l => l.Quantity * l.EstimatedUnitPrice);
+        var newVersion = new DocumentVersion
+        {
+            DocumentId = document.Id,
+            VersionNumber = currentVersion.VersionNumber + 1,
+            PreviousVersionId = currentVersion.Id,
+            VersionStatus = DocumentVersionStatus.PendingApproval,
+            EffectiveFrom = now,
+            CreatedBy = amendedBy,
+            CreatedAtUtc = now,
+            ChangeReason = request.ChangeReason,
+            PayloadJson = JsonSerializer.Serialize(new PrSnapshot(
+                request.Description, request.Category, request.RequisitionType, request.RequiredByDate,
+                request.PreferredSupplierName, proposedTotal, request.Currency,
+                request.Lines.Select(l => new PrSnapshotLine(l.ItemDescription, l.Quantity, l.Uom, l.EstimatedUnitPrice)).ToList()))
+        };
+
+        // pr's live fields and currentVersion are untouched - the proposal lives only
+        // in newVersion until approved, exactly like PurchaseOrderService.AmendAsync.
+        document.CurrentStatus = nameof(DocumentVersionStatus.PendingApproval);
+
+        _db.DocumentVersions.Add(newVersion);
+        _db.AuditLogs.Add(AuditLog.Create(EntityType, pr.Id, "SUBMIT", amendedBy, await UserNameAsync(amendedBy, ct), newVersion.Id, source: "API", reason: request.ChangeReason,
+            comments: $"Amendment: v{currentVersion.VersionNumber} -> v{newVersion.VersionNumber}"));
+        await _db.SaveChangesAsync(ct);
+
+        var instanceId = await _workflowEngine.StartAsync(EntityType, pr.Id, newVersion.Id, new Dictionary<string, decimal> { ["Amount"] = proposedTotal }, ct);
+        newVersion.WorkflowInstanceId = instanceId;
+        await _db.SaveChangesAsync(ct);
+    }
+
     public async Task<RequisitionDetailDto?> GetAsync(Guid id, CancellationToken ct = default)
     {
         var pr = await _db.PurchaseRequisitions.Include(p => p.Lines).AsSplitQuery().FirstOrDefaultAsync(p => p.Id == id, ct);
@@ -206,18 +275,70 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<DocumentVersionDto>> GetVersionHistoryAsync(Guid id, CancellationToken ct = default)
+    {
+        var pr = await _db.PurchaseRequisitions.FindAsync([id], ct) ?? throw new InvalidOperationException("Requisition not found.");
+        return await _db.DocumentVersions
+            .Where(v => v.DocumentId == pr.DocumentId)
+            .OrderByDescending(v => v.VersionNumber)
+            .Select(v => new DocumentVersionDto(v.Id, v.VersionNumber, v.VersionStatus.ToString(), v.EffectiveFrom, v.EffectiveTo, v.ChangeReason, v.ChangeComment, v.PayloadJson))
+            .ToListAsync(ct);
+    }
+
     // --- IWorkflowCompletionHandler ------------------------------------------------
 
     public async Task OnApprovedAsync(Guid entityId, Guid documentVersionId, CancellationToken ct = default)
     {
-        var pr = await _db.PurchaseRequisitions.FindAsync([entityId], ct);
+        var pr = await _db.PurchaseRequisitions.Include(p => p.Lines).FirstOrDefaultAsync(p => p.Id == entityId, ct);
         var version = await _db.DocumentVersions.FindAsync([documentVersionId], ct);
         if (pr is null || version is null) return;
-
         var document = await _db.Documents.FindAsync([pr.DocumentId], ct);
-        pr.Status = PurchaseRequisitionStatus.Approved;
+
+        if (version.VersionNumber == 1)
+        {
+            pr.Status = PurchaseRequisitionStatus.Approved;
+        }
+        else
+        {
+            // An amendment: apply the proposed snapshot now that it's approved, and
+            // only now supersede the version that was effective until this moment -
+            // same pattern as PurchaseOrderService.OnApprovedAsync.
+            var snapshot = JsonSerializer.Deserialize<PrSnapshot>(version.PayloadJson)!;
+            pr.Description = snapshot.Description;
+            pr.Category = snapshot.Category;
+            pr.RequisitionType = snapshot.RequisitionType;
+            pr.RequiredByDate = snapshot.RequiredByDate;
+            pr.PreferredSupplierName = snapshot.PreferredSupplierName;
+            pr.EstimatedValue = snapshot.EstimatedValue;
+
+            var newLines = snapshot.Lines.Select((l, i) => new PurchaseRequisitionLine
+            {
+                PurchaseRequisitionId = pr.Id, LineNumber = i + 1, ItemDescription = l.ItemDescription, Quantity = l.Quantity, Uom = l.Uom, EstimatedUnitPrice = l.EstimatedUnitPrice
+            }).ToList();
+            _db.PurchaseRequisitionLines.RemoveRange(pr.Lines);
+            _db.PurchaseRequisitionLines.AddRange(newLines);
+            pr.ReplaceLines(newLines);
+
+            if (document?.CurrentVersionId is Guid previousVersionId)
+            {
+                var previous = await _db.DocumentVersions.FindAsync([previousVersionId], ct);
+                if (previous is not null)
+                {
+                    previous.VersionStatus = DocumentVersionStatus.Superseded;
+                    previous.EffectiveTo = DateTimeOffset.UtcNow;
+                }
+            }
+            // pr.Status stays Approved - an amendment changes the fields, not the lifecycle stage.
+        }
+
+        pr.UpdatedBy = version.CreatedBy;
+        pr.UpdatedAtUtc = DateTimeOffset.UtcNow;
         version.VersionStatus = DocumentVersionStatus.Active;
-        if (document is not null) document.CurrentStatus = nameof(PurchaseRequisitionStatus.Approved);
+        if (document is not null)
+        {
+            document.CurrentVersionId = version.Id;
+            document.CurrentStatus = pr.Status.ToString();
+        }
 
         await _db.SaveChangesAsync(ct);
     }
@@ -227,34 +348,72 @@ public sealed class PurchaseRequisitionService : IPurchaseRequisitionService, IW
         var pr = await _db.PurchaseRequisitions.FindAsync([entityId], ct);
         var version = await _db.DocumentVersions.FindAsync([documentVersionId], ct);
         if (pr is null || version is null) return;
-
         var document = await _db.Documents.FindAsync([pr.DocumentId], ct);
-        pr.Status = PurchaseRequisitionStatus.Rejected;
+
         version.VersionStatus = DocumentVersionStatus.Rejected;
         version.ChangeReason ??= reason;
-        if (document is not null) document.CurrentStatus = nameof(PurchaseRequisitionStatus.Rejected);
 
+        if (version.VersionNumber == 1)
+        {
+            pr.Status = PurchaseRequisitionStatus.Rejected;
+        }
+        // else: an amendment was rejected - the previously-Active version was never
+        // touched and remains effective; pr's live fields are untouched too, by
+        // construction (see AmendAsync's comment).
+
+        if (document is not null) document.CurrentStatus = pr.Status.ToString();
         await _db.SaveChangesAsync(ct);
     }
 
     // --- helpers ---------------------------------------------------------------------
 
-    private async Task<string> NextNumberAsync(string prefix, CancellationToken ct)
+    private static void ValidateLines(IReadOnlyList<CreateRequisitionLineRequest> lines)
+    {
+        if (lines.Count == 0)
+        {
+            throw new InvalidOperationException("A requisition needs at least one line.");
+        }
+        foreach (var line in lines)
+        {
+            if (line.Quantity <= 0) throw new InvalidOperationException($"Line '{line.ItemDescription}': quantity must be greater than zero.");
+            if (string.IsNullOrWhiteSpace(line.Uom)) throw new InvalidOperationException($"Line '{line.ItemDescription}': UOM is required.");
+        }
+    }
+
+    private static void ValidateRequiredByDate(DateOnly requiredByDate)
+    {
+        if (requiredByDate < DateOnly.FromDateTime(DateTime.UtcNow))
+        {
+            throw new InvalidOperationException("Required-by date cannot be in the past.");
+        }
+    }
+
+    private static IEnumerable<PurchaseRequisitionLine> ToLines(IReadOnlyList<CreateRequisitionLineRequest> lines, Guid purchaseRequisitionId) =>
+        lines.Select((l, i) => new PurchaseRequisitionLine
+        {
+            PurchaseRequisitionId = purchaseRequisitionId,
+            LineNumber = i + 1,
+            ItemDescription = l.ItemDescription,
+            Quantity = l.Quantity,
+            Uom = l.Uom,
+            EstimatedUnitPrice = l.EstimatedUnitPrice
+        });
+
+    private async Task<string> NextNumberAsync(CancellationToken ct)
     {
         var count = await _db.Documents.CountAsync(d => d.DocumentType == EntityType, ct);
-        return $"{prefix}-{count + 1:D5}";
+        return $"PR-{count + 1:D5}";
     }
 
     private async Task<string> UserNameAsync(Guid userId, CancellationToken ct)
         => await _db.Users.Where(u => u.Id == userId).Select(u => u.DisplayName).FirstOrDefaultAsync(ct) ?? userId.ToString();
 
-    private static string SnapshotJson(PurchaseRequisition pr) => System.Text.Json.JsonSerializer.Serialize(new
-    {
-        pr.RequisitionNumber,
-        pr.Description,
-        pr.Category,
-        pr.EstimatedValue,
-        pr.Currency,
-        Lines = pr.Lines.Select(l => new { l.ItemDescription, l.Quantity, l.Uom, l.EstimatedUnitPrice })
-    });
+    private static string Snapshot(PurchaseRequisition pr) => JsonSerializer.Serialize(new PrSnapshot(
+        pr.Description, pr.Category, pr.RequisitionType, pr.RequiredByDate, pr.PreferredSupplierName, pr.EstimatedValue, pr.Currency,
+        pr.Lines.Select(l => new PrSnapshotLine(l.ItemDescription, l.Quantity, l.Uom, l.EstimatedUnitPrice)).ToList()));
+
+    private sealed record PrSnapshot(
+        string Description, string Category, string RequisitionType, DateOnly RequiredByDate,
+        string? PreferredSupplierName, decimal EstimatedValue, string Currency, List<PrSnapshotLine> Lines);
+    private sealed record PrSnapshotLine(string ItemDescription, decimal Quantity, string Uom, decimal EstimatedUnitPrice);
 }

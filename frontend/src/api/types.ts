@@ -46,6 +46,13 @@ export interface CreateRequisitionInput {
   lines: CreateRequisitionLineInput[];
 }
 
+/** Same shape as create - editing a Draft replaces the whole thing. */
+export type UpdateRequisitionInput = CreateRequisitionInput;
+
+export interface AmendRequisitionInput extends CreateRequisitionInput {
+  changeReason: string;
+}
+
 export interface OrderLine {
   id: string;
   lineNumber: number;

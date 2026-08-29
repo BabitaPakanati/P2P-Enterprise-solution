@@ -24,6 +24,9 @@ yarn-error.log*
 *.pem
 !global-bundle.pem
 
+# ---- Personal scratch notes (not project content) ----
+Rough.txt
+
 # ---- OS / editor ----
 .DS_Store
 Thumbs.db

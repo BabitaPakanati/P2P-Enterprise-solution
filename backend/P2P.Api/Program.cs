@@ -212,6 +212,12 @@ requisitions.MapPost("/", async (IPurchaseRequisitionService svc, ICurrentUserCo
     return Results.Created($"/api/v1/requisitions/{id}", new { id });
 });
 
+requisitions.MapPut("/{id:guid}", async (IPurchaseRequisitionService svc, Guid id, UpdateRequisitionRequest body) =>
+{
+    await svc.UpdateAsync(id, body);
+    return Results.NoContent();
+});
+
 requisitions.MapPost("/{id:guid}/submit", async (IPurchaseRequisitionService svc, Guid id) =>
 {
     await svc.SubmitAsync(id);
@@ -224,6 +230,12 @@ requisitions.MapPost("/{id:guid}/cancel", async (IPurchaseRequisitionService svc
     return Results.NoContent();
 });
 
+requisitions.MapPost("/{id:guid}/amend", async (IPurchaseRequisitionService svc, ICurrentUserContext user, Guid id, AmendRequisitionRequest body) =>
+{
+    await svc.AmendAsync(id, user.UserId, body);
+    return Results.NoContent();
+});
+
 requisitions.MapGet("/", async (IPurchaseRequisitionService svc, ICurrentUserContext user, bool? mine) =>
     Results.Ok(await svc.ListAsync(mine == true ? user.UserId : null)));
 
@@ -232,6 +244,9 @@ requisitions.MapGet("/{id:guid}", async (IPurchaseRequisitionService svc, Guid i
     var dto = await svc.GetAsync(id);
     return dto is null ? Results.NotFound() : Results.Ok(dto);
 });
+
+requisitions.MapGet("/{id:guid}/versions", async (IPurchaseRequisitionService svc, Guid id) =>
+    Results.Ok(await svc.GetVersionHistoryAsync(id)));
 
 // --- Purchase Orders -----------------------------------------------------------------------
 

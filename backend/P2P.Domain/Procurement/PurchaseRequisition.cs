@@ -46,6 +46,18 @@ public sealed class PurchaseRequisition : AuditableEntity
     private readonly List<PurchaseRequisitionLine> _lines = new();
     public IReadOnlyCollection<PurchaseRequisitionLine> Lines => _lines.AsReadOnly();
     public void AddLine(PurchaseRequisitionLine line) => _lines.Add(line);
+
+    /// <summary>
+    /// Callers must also RemoveRange the old lines and AddRange the new ones on the
+    /// DbSet directly before calling this - see PurchaseOrder.ReplaceLines's comment
+    /// (and PurchaseOrderService.OnApprovedAsync) for why relying on this collection
+    /// mutation alone isn't enough for EF Core to generate the right DELETE/INSERT.
+    /// </summary>
+    public void ReplaceLines(IEnumerable<PurchaseRequisitionLine> lines)
+    {
+        _lines.Clear();
+        _lines.AddRange(lines);
+    }
 }
 
 public sealed class PurchaseRequisitionLine : Entity

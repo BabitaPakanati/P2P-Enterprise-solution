@@ -65,7 +65,8 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
     setAdmin(null);
   }, []);
 
-  const api = useMemo(() => adminApi(admin?.token ?? null), [admin?.token]);
+  // See client.ts's createApi comment on onUnauthorized.
+  const api = useMemo(() => adminApi(admin?.token ?? null, logout), [admin?.token, logout]);
 
   const value: AdminSessionValue = { admin, api, ready: admin !== null, login, logout, loginLoading, loginError };
 

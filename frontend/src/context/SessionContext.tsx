@@ -76,7 +76,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const api = useMemo(() => createApi(user?.token ?? null), [user?.token]);
+  // See client.ts's createApi comment: a 401 (expired token) logs the session
+  // out immediately instead of leaving pages silently rendering a stale empty
+  // state as if nothing had ever been configured.
+  const api = useMemo(() => createApi(user?.token ?? null, logout), [user?.token, logout]);
 
   const value: SessionValue = { user, api, ready: user !== null, login, logout, loginLoading, loginError };
 

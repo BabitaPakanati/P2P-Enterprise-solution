@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Plus, GitBranch, PenSquare } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Plus, GitBranch, PenSquare, Shield } from "lucide-react";
 import { useSession } from "../../context/SessionContext";
 import {
   listRoles, listWorkflows, createWorkflowDefinition, createWorkflowVersion,
@@ -42,7 +43,12 @@ export function Workflows() {
 
       {error && <div className="error-banner">{error}</div>}
       {roles.length === 0 && !loading && (
-        <div className="error-banner">No approval roles exist yet - create one under Approval Roles first, then come back here.</div>
+        <div className="error-banner" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
+          <span>No approval roles exist yet - a workflow step always approves against a role. Create one first, then come back here.</span>
+          <Link to="/settings/roles?new=1" style={{ flexShrink: 0 }}>
+            <button type="button" className="small"><Shield size={12} strokeWidth={2.25} />Create Approval Role</button>
+          </Link>
+        </div>
       )}
 
       {loading ? (

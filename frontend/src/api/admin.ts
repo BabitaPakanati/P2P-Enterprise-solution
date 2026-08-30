@@ -52,7 +52,7 @@ export interface OrganisationSummary {
   createdAtUtc: string;
 }
 
-export const adminApi = (token: string | null): Api => createApi(token);
+export const adminApi = (token: string | null, onUnauthorized?: () => void): Api => createApi(token, onUnauthorized);
 
 export const listOrganisations = (api: Api) => api.get<OrganisationSummary[]>("/api/v1/platform/organisations");
 export const createOrganisation = (api: Api, orgCode: string, displayName: string) =>

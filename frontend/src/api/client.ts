@@ -22,8 +22,19 @@ async function parseResponse<T>(res: Response): Promise<T> {
  * SessionContext. No more X-Org-Code/X-User-Id header stand-ins: the token's
  * org_id/org_code/schema/sub claims are what the backend's
  * IdentityResolutionMiddleware reads now.
+ *
+ * `onUnauthorized` fires on a 401 from any call this instance makes (an
+ * expired or otherwise invalid token) - SessionContext/AdminSessionContext
+ * wire it to `logout()`. Without this, a page whose fetch quietly rejected
+ * left its state at its initial empty array and rendered a normal-looking
+ * "nothing here yet" empty state instead of ever surfacing that the session
+ * had lapsed - e.g. Workflows.tsx's "no roles configured" banner appearing
+ * for a user who actually has roles, just no working session to fetch them
+ * with. Real bug, found live: a browser tab left open for hours, its token
+ * expired, and every settings page silently looked reset instead of prompting
+ * a re-login.
  */
-export function createApi(token: string | null) {
+export function createApi(token: string | null, onUnauthorized?: () => void) {
   const request = async <T,>(path: string, method: "GET" | "POST" | "PUT", body?: unknown): Promise<T> => {
     const headers: Record<string, string> = {};
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -34,6 +45,7 @@ export function createApi(token: string | null) {
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
+    if (res.status === 401) onUnauthorized?.();
     return parseResponse<T>(res);
   };
 

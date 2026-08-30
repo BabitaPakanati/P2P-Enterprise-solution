@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Plus, Shield } from "lucide-react";
 import { useSession } from "../../context/SessionContext";
 import { listRoles, createRole, type RoleDto } from "../../api/settings";
@@ -6,9 +7,11 @@ import { ApiError } from "../../api/client";
 
 export function Roles() {
   const { api, ready } = useSession();
+  const [params] = useSearchParams();
   const [roles, setRoles] = useState<RoleDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
+  // Arriving from Workflows' "no roles yet" prompt (?new=1) opens the form immediately.
+  const [showForm, setShowForm] = useState(() => params.get("new") === "1");
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
